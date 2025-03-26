@@ -1,0 +1,9 @@
+services:
+  localstack:
+    image: localstack/localstack
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    volumes:
+      - "C:/Users/anshu/OneDrive/Documents/COEP Hackathon/metastore-viewer/backend/init-scripts:/etc/localstack/init/ready.d"
+      - "C:/Users/anshu/OneDrive/Documents/COEP Hackathon/metastore-viewer/backend:/data"
