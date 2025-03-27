@@ -19,3 +19,8 @@ aws --endpoint-url=http://localhost:9000 s3 cp flights-1m.parquet s3://test-buck
 aws --endpoint-url=http://localhost:9000 s3 cp weather.parquet s3://test-bucket/weather.parquet
 
 aws --endpoint-url=http://localhost:9000 s3 ls s3://test-bucket/
+
+
+aws configure set aws_access_key_id admin
+aws configure set aws_secret_access_key password
+aws configure set region us-east-1
