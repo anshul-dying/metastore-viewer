@@ -1,18 +1,17 @@
+# create minio 
+docker run -d --name minio `
+  -p 9000:9000 -p 9090:9090 `
+  -e "MINIO_ROOT_USER=admin" `
+  -e "MINIO_ROOT_PASSWORD=password" `
+  quay.io/minio/minio server /data --console-address ":9090"
+
+# configure aws setup
+aws configure set aws_access_key_id admin
+aws configure set aws_secret_access_key password
+aws configure set region us-east-1
+
+# start docker
 docker-compose up -d
-
-
-Start-Sleep -Seconds 5
-
-
-aws --endpoint-url=http://localhost:4566 s3 mb s3://test-bucket
-aws --endpoint-url=http://localhost:4566 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
-aws --endpoint-url=http://localhost:4566 s3 cp weather.parquet s3://test-bucket/weather.parquet
-
-aws --endpoint-url=http://localhost:4566 s3 ls s3://test-bucket/
-
-
-
-
 
 aws --endpoint-url=http://localhost:9000 s3 mb s3://test-bucket
 aws --endpoint-url=http://localhost:9000 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
@@ -21,6 +20,3 @@ aws --endpoint-url=http://localhost:9000 s3 cp weather.parquet s3://test-bucket/
 aws --endpoint-url=http://localhost:9000 s3 ls s3://test-bucket/
 
 
-aws configure set aws_access_key_id admin
-aws configure set aws_secret_access_key password
-aws configure set region us-east-1
