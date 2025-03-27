@@ -8,5 +8,14 @@ aws --endpoint-url=http://localhost:4566 s3 mb s3://test-bucket
 aws --endpoint-url=http://localhost:4566 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
 aws --endpoint-url=http://localhost:4566 s3 cp weather.parquet s3://test-bucket/weather.parquet
 
-# Verify
 aws --endpoint-url=http://localhost:4566 s3 ls s3://test-bucket/
+
+
+
+
+
+aws --endpoint-url=http://localhost:9000 s3 mb s3://test-bucket
+aws --endpoint-url=http://localhost:9000 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
+aws --endpoint-url=http://localhost:9000 s3 cp weather.parquet s3://test-bucket/weather.parquet
+
+aws --endpoint-url=http://localhost:9000 s3 ls s3://test-bucket/

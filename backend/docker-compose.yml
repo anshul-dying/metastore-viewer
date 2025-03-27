@@ -1,9 +1,34 @@
+#
+
+version: '3.8'
+
 services:
-  localstack:
-    image: localstack/localstack
-    container_name: localstack
+  minio:
+    image: quay.io/minio/minio
+    container_name: minio
     ports:
-      - "4566:4566"
+      - "9000:9000" # S3 API
+      - "9090:9090" # MinIO Console
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9090"
     volumes:
-      - "C:/Users/anshu/OneDrive/Documents/COEP Hackathon/metastore-viewer/backend/init-scripts:/etc/localstack/init/ready.d"
-      - "C:/Users/anshu/OneDrive/Documents/COEP Hackathon/metastore-viewer/backend:/data"
+      - minio_data:/data
+
+  backend:
+    build: .
+    container_name: backend
+    depends_on:
+      - minio
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000" # Flask API
+
+volumes:
+  minio_data:
