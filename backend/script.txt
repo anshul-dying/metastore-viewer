@@ -13,7 +13,7 @@ aws configure set region us-east-1
 # start docker
 docker-compose up -d
 
-aws --endpoint-url=http://localhost:9000 s3 mb s3://test-bucket
+aws --endpoint-url=http://localhost:9000 s3 mb s3://test-bucket-
 aws --endpoint-url=http://localhost:9000 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
 aws --endpoint-url=http://localhost:9000 s3 cp weather.parquet s3://test-bucket/weather.parquet
 
