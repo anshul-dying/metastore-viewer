@@ -7,3 +7,4 @@ pandas
 minio 
 fastparquet
 awscli
+flask_cors
