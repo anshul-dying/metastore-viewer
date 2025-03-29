@@ -33,8 +33,8 @@ const getFileIcon = (extension) => {
   if (["xls", "xlsx", "csv"].includes(ext)) return <FaFileExcel className="text-green-500" />;
   if (["pdf"].includes(ext)) return <FaFilePdf className="text-red-500" />;
   if (["jpg", "jpeg", "png", "gif"].includes(ext)) return <FaFileImage className="text-yellow-500" />;
-  if (["parquet", "delta", "iceberg", "hudi"].includes(ext)) return <FaFileCode className="text-glacier-blue" />;
-  return <FaFileAlt className="text-mist-gray dark:text-frost-white" />;
+  if (["parquet", "delta", "iceberg", "hudi"].includes(ext)) return <FaFileCode className="text-accent-blue" />;
+  return <FaFileAlt className="text-subtle-gray dark:text-white" />;
 };
 
 const debounce = (func, delay) => {
@@ -125,8 +125,8 @@ const generateHistogramData = (data, column) => {
       {
         label: `Distribution of ${column}`,
         data: bins,
-        backgroundColor: "rgba(74, 144, 226, 0.6)", // Glacier Blue with opacity
-        borderColor: "#4A90E2", // Glacier Blue
+        backgroundColor: "rgba(0, 161, 214, 0.6)", // Accent Blue with opacity
+        borderColor: "#00A1D6", // Accent Blue
         borderWidth: 1,
       },
     ],
@@ -144,22 +144,21 @@ const generateCategoricalBarData = (topValues, column) => {
       {
         label: `Top Values in ${column}`,
         data,
-        backgroundColor: "rgba(59, 105, 120, 0.6)", // Slate Teal with opacity
-        borderColor: "#3B6978", // Slate Teal
+        backgroundColor: "rgba(74, 74, 74, 0.6)", // Medium Gray with opacity
+        borderColor: "#4A4A4A", // Medium Gray
         borderWidth: 1,
       },
     ],
   };
 };
 
-const MetadataViewer = () => {
+const MetadataViewer = ({ darkMode }) => {
   const [objectStorePath, setObjectStorePath] = useState("s3://test-bucket");
   const [metadata, setMetadata] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedItem, setExpandedItem] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
   const [dataMap, setDataMap] = useState({});
   const [loadingDataMap, setLoadingDataMap] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,16 +167,6 @@ const MetadataViewer = () => {
   const [hiddenColumns, setHiddenColumns] = useState({});
 
   const itemsPerPage = 10;
-
-  // Debug darkMode state
-  useEffect(() => {
-    console.log("Dark Mode State:", darkMode);
-    if (!darkMode) {
-      document.documentElement.classList.remove("dark");
-    } else {
-      document.documentElement.classList.add("dark");
-    }
-  }, [darkMode]);
 
   const parsePath = (path) => {
     const match = path.match(/^(s3|azure|minio):\/\/([^/]+)(?:\/(.+))?$/);
@@ -302,13 +291,13 @@ const MetadataViewer = () => {
 
   const LoadingSpinner = () => (
     <div className="flex justify-center items-center h-32">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-glacier-blue dark:border-frost-white"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-blue dark:border-white"></div>
     </div>
   );
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen p-6 transition-all">
+      <div className="min-h-screen p-6 transition-all font-open-sans">
         <form onSubmit={handleSubmit} className="mb-6">
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <input
@@ -316,16 +305,15 @@ const MetadataViewer = () => {
               placeholder="Enter path (e.g., s3://bucket/prefix)"
               value={objectStorePath}
               onChange={(e) => setObjectStorePath(e.target.value)}
-              className="px-4 py-2 border rounded-lg w-full sm:w-2/3 shadow-md focus:outline-none focus:ring-2 focus:ring-glacier-blue bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md border-mist-gray/20 dark:border-frost-white/20 text-midnight-blue dark:text-frost-white placeholder-mist-gray dark:placeholder-frost-white transition-all duration-300"
+              className="px-4 py-2 border rounded-lg w-full sm:w-2/3 shadow-md focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white placeholder-medium-gray dark:placeholder-white transition-all duration-300"
             />
             <button
               type="submit"
-              className="px-4 py-2 bg-glacier-blue text-frost-white rounded-md hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300 active:scale-95"
+              className="px-4 py-2 bg-accent-blue text-white font-montserrat font-semibold rounded-md hover:bg-[#00B7F0] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300 active:scale-95"
               disabled={loading}
             >
               Load Metadata
             </button>
-            {/* Dark mode toggle removed from here since it's now in Home.js */}
           </div>
         </form>
 
@@ -333,7 +321,7 @@ const MetadataViewer = () => {
           type="text"
           placeholder="Search tables/files..."
           onChange={(e) => handleSearch(e.target.value)}
-          className="mb-6 px-4 py-2 border rounded-lg w-full shadow-md focus:outline-none focus:ring-2 focus:ring-glacier-blue bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md border-mist-gray/20 dark:border-frost-white/20 text-midnight-blue dark:text-frost-white placeholder-mist-gray dark:placeholder-frost-white transition-all duration-300"
+          className="mb-6 px-4 py-2 border rounded-lg w-full shadow-md focus:outline-none focus:ring-2 focus:ring-accent-blue bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white placeholder-medium-gray dark:placeholder-white transition-all duration-300"
         />
 
         {loading ? (
@@ -343,37 +331,37 @@ const MetadataViewer = () => {
         ) : (
           <>
             <div className="overflow-x-auto w-full max-w-6xl mx-auto">
-              <table className="w-full shadow-lg rounded-lg overflow-hidden bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md border border-mist-gray/20 dark:border-frost-white/20">
-                <thead className="bg-mist-gray dark:bg-slate-teal text-midnight-blue dark:text-frost-white">
+              <table className="w-full shadow-md rounded-lg overflow-hidden bg-white dark:bg-dark-teal border border-subtle-gray dark:border-white/20">
+                <thead className="bg-subtle-gray dark:bg-medium-gray text-medium-gray dark:text-white">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold">Table/File Name</th>
-                    <th className="px-6 py-3 text-left font-semibold">Format</th>
-                    <th className="px-6 py-3 text-left font-semibold">Actions</th>
+                    <th className="px-6 py-3 text-left font-montserrat font-semibold">Table/File Name</th>
+                    <th className="px-6 py-3 text-left font-montserrat font-semibold">Format</th>
+                    <th className="px-6 py-3 text-left font-montserrat font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedMetadata.length > 0 ? (
                     paginatedMetadata.map((item) => (
                       <React.Fragment key={item.file}>
-                        <tr className="hover:bg-glacier-blue/10 dark:hover:bg-frost-white/10 transition-all duration-200">
-                          <td className="px-6 py-4 font-mono flex items-center space-x-2 text-midnight-blue dark:text-frost-white">
+                        <tr className="hover:bg-accent-blue/10 dark:hover:bg-white/10 transition-all duration-200">
+                          <td className="px-6 py-4 font-mono flex items-center space-x-2 text-medium-gray dark:text-white">
                             {getFileIcon(item.extension)}
                             <span>{item.file}</span>
                           </td>
-                          <td className="px-6 py-4 text-mist-gray dark:text-glacier-blue">
+                          <td className="px-6 py-4 text-medium-gray dark:text-accent-blue">
                             {item.details && item.details.format ? item.details.format : "N/A"}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex space-x-2">
                               <button
-                                className="px-3 py-2 bg-glacier-blue text-frost-white rounded-md hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300 active:scale-95"
+                                className="px-3 py-2 bg-accent-blue text-white font-montserrat font-semibold rounded-md hover:bg-[#00B7F0] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300 active:scale-95"
                                 onClick={() => toggleExpand(item.file)}
                               >
                                 {expandedItem === item.file ? "Hide Details" : "View Details"}
                               </button>
                               {item.extension === "parquet" && (
                                 <button
-                                  className="px-3 py-2 bg-glacier-blue text-frost-white rounded-md hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300 active:scale-95"
+                                  className="px-3 py-2 bg-accent-blue text-white font-montserrat font-semibold rounded-md hover:bg-[#00B7F0] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300 active:scale-95"
                                   onClick={() => {
                                     if (dataMap[item.file]) {
                                       setDataMap((prev) => {
@@ -396,37 +384,37 @@ const MetadataViewer = () => {
                         {expandedItem === item.file && (
                           <tr>
                             <td colSpan={3} className="p-6">
-                              <div className="p-4 rounded-lg shadow-md border-l-4 border-glacier-blue dark:border-frost-white bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md">
+                              <div className="p-4 rounded-lg shadow-md border-l-4 border-accent-blue dark:border-white bg-white dark:bg-dark-teal">
                                 {item.details && item.details.error && (
                                   <p className="text-red-500 mb-4">Error: {item.details.error}</p>
                                 )}
-                                <h3 className="text-lg font-semibold mb-2 text-slate-teal dark:text-glacier-blue">Schema</h3>
+                                <h3 className="text-lg font-montserrat font-semibold mb-2 text-medium-gray dark:text-accent-blue">Schema</h3>
                                 <div className="grid grid-cols-3 gap-4 text-sm font-mono">
                                   {item.details && Array.isArray(item.details.columns) && item.details.columns.length > 0 ? (
                                     item.details.columns.map((col, i) => (
-                                      <div key={i} className="flex flex-col p-2 border-b border-mist-gray/20 dark:border-frost-white/20">
-                                        <span className="font-semibold text-glacier-blue">{col.name}</span>
-                                        <span className="text-midnight-blue dark:text-frost-white">{formatDataType(col.type)}</span>
-                                        <span className="text-mist-gray dark:text-glacier-blue">{col.nullable ? "Nullable" : "Not Nullable"}</span>
+                                      <div key={i} className="flex flex-col p-2 border-b border-subtle-gray dark:border-white/20">
+                                        <span className="font-semibold text-accent-blue">{col.name}</span>
+                                        <span className="text-medium-gray dark:text-white">{formatDataType(col.type)}</span>
+                                        <span className="text-medium-gray dark:text-accent-blue">{col.nullable ? "Nullable" : "Not Nullable"}</span>
                                       </div>
                                     ))
                                   ) : (
-                                    <p className="text-mist-gray dark:text-frost-white">No schema available</p>
+                                    <p className="text-medium-gray dark:text-white">No schema available</p>
                                   )}
                                 </div>
-                                <h3 className="text-lg font-semibold mt-4 text-slate-teal dark:text-glacier-blue">Partition Details</h3>
+                                <h3 className="text-lg font-montserrat font-semibold mt-4 text-medium-gray dark:text-accent-blue">Partition Details</h3>
                                 {item.details && Array.isArray(item.details.partition_keys) && item.details.partition_keys.length > 0 ? (
-                                  <ul className="list-disc pl-5 text-midnight-blue dark:text-frost-white">
+                                  <ul className="list-disc pl-5 text-medium-gray dark:text-white">
                                     {item.details.partition_keys.map((key, i) => (
                                       <li key={i}>{key}</li>
                                     ))}
                                   </ul>
                                 ) : (
-                                  <p className="text-mist-gray dark:text-frost-white">No partitions</p>
+                                  <p className="text-medium-gray dark:text-white">No partitions</p>
                                 )}
-                                <h3 className="text-lg font-semibold mt-4 text-slate-teal dark:text-glacier-blue">Snapshots/Versions</h3>
+                                <h3 className="text-lg font-montserrat font-semibold mt-4 text-medium-gray dark:text-accent-blue">Snapshots/Versions</h3>
                                 {item.details && Array.isArray(item.details.snapshots) && item.details.snapshots.length > 0 ? (
-                                  <ul className="list-disc pl-5 text-midnight-blue dark:text-frost-white">
+                                  <ul className="list-disc pl-5 text-medium-gray dark:text-white">
                                     {item.details.snapshots.map((snap, i) => (
                                       <li key={i}>
                                         ID: {snap.id || snap.version}, Timestamp: {snap.timestamp}
@@ -434,13 +422,13 @@ const MetadataViewer = () => {
                                     ))}
                                   </ul>
                                 ) : (
-                                  <p className="text-mist-gray dark:text-frost-white">No snapshots</p>
+                                  <p className="text-medium-gray dark:text-white">No snapshots</p>
                                 )}
-                                <h3 className="text-lg font-semibold mt-4 text-slate-teal dark:text-glacier-blue">Key Metrics</h3>
-                                <p className="text-midnight-blue dark:text-frost-white">
+                                <h3 className="text-lg font-montserrat font-semibold mt-4 text-medium-gray dark:text-accent-blue">Key Metrics</h3>
+                                <p className="text-medium-gray dark:text-white">
                                   File Size: {item.details && item.details.file_size ? formatFileSize(item.details.file_size) : "N/A"}
                                 </p>
-                                <p className="text-midnight-blue dark:text-frost-white">
+                                <p className="text-medium-gray dark:text-white">
                                   Row Count: {item.details && item.details.num_rows ? formatNumber(item.details.num_rows) : "N/A"}
                                 </p>
                               </div>
@@ -451,13 +439,13 @@ const MetadataViewer = () => {
                         {dataMap[item.file] && (
                           <tr>
                             <td colSpan={3} className="p-6">
-                              <div className="p-4 rounded-lg shadow-md border-l-4 border-glacier-blue dark:border-frost-white bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md">
+                              <div className="p-4 rounded-lg shadow-md border-l-4 border-accent-blue dark:border-white bg-white dark:bg-dark-teal">
                                 <div className="flex justify-between items-center mb-2">
-                                  <h3 className="text-lg font-semibold text-slate-teal dark:text-glacier-blue">
+                                  <h3 className="text-lg font-montserrat font-semibold text-medium-gray dark:text-accent-blue">
                                     Sample Data: {dataMap[item.file].file}
                                   </h3>
                                   <button
-                                    className="text-sm text-glacier-blue hover:underline"
+                                    className="text-sm text-accent-blue hover:underline"
                                     onClick={() =>
                                       setDataMap((prev) => {
                                         const newMap = { ...prev };
@@ -476,7 +464,7 @@ const MetadataViewer = () => {
                                 ) : (
                                   <>
                                     <div className="mb-4">
-                                      <h4 className="text-md font-semibold mb-2 text-slate-teal dark:text-glacier-blue">Manage Columns</h4>
+                                      <h4 className="text-md font-montserrat font-semibold mb-2 text-medium-gray dark:text-accent-blue">Manage Columns</h4>
                                       <div className="flex flex-wrap gap-2">
                                         {Object.keys(dataMap[item.file].data[0] || {}).map((key) => (
                                           <div key={key} className="flex items-center space-x-2">
@@ -485,13 +473,13 @@ const MetadataViewer = () => {
                                               checked={!hiddenColumns[item.file]?.[key]}
                                               onChange={() => toggleHideColumn(item.file, key)}
                                             />
-                                            <label className="text-sm text-midnight-blue dark:text-frost-white">{key}</label>
+                                            <label className="text-sm text-medium-gray dark:text-white">{key}</label>
                                             <button
                                               onClick={() => togglePinColumn(item.file, key)}
                                               className={`text-sm px-2 py-1 rounded ${
                                                 pinnedColumns[item.file]?.[key]
-                                                  ? "bg-glacier-blue text-frost-white"
-                                                  : "bg-mist-gray text-midnight-blue dark:bg-slate-teal dark:text-frost-white"
+                                                  ? "bg-accent-blue text-white"
+                                                  : "bg-subtle-gray text-medium-gray dark:bg-medium-gray dark:text-white"
                                               } hover:scale-105 transition-all duration-300`}
                                             >
                                               {pinnedColumns[item.file]?.[key] ? "Unpin" : "Pin"}
@@ -502,15 +490,15 @@ const MetadataViewer = () => {
                                     </div>
                                     <div className="overflow-x-auto max-h-96 mb-6 w-full max-w-6xl mx-auto">
                                       <div className="inline-block">
-                                        <table className="border-collapse border border-mist-gray/20 dark:border-frost-white/20 bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md">
+                                        <table className="border-collapse border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal">
                                           <thead>
-                                            <tr className="bg-mist-gray dark:bg-slate-teal sticky top-0 z-10">
+                                            <tr className="bg-subtle-gray dark:bg-medium-gray sticky top-0 z-10">
                                               {Object.keys(dataMap[item.file].data[0] || {})
                                                 .filter((key) => !hiddenColumns[item.file]?.[key])
                                                 .map((key, idx) => (
                                                   <th
                                                     key={key}
-                                                    className={`border p-2 whitespace-nowrap text-midnight-blue dark:text-frost-white ${
+                                                    className={`border p-2 whitespace-nowrap text-medium-gray dark:text-white ${
                                                       pinnedColumns[item.file]?.[key] ? "sticky z-20 bg-inherit" : ""
                                                     }`}
                                                     style={{
@@ -537,13 +525,13 @@ const MetadataViewer = () => {
                                           </thead>
                                           <tbody>
                                             {dataMap[item.file].data.map((row, idx) => (
-                                              <tr key={idx} className="hover:bg-glacier-blue/10 dark:hover:bg-frost-white/10 transition-all duration-200">
+                                              <tr key={idx} className="hover:bg-accent-blue/10 dark:hover:bg-white/10 transition-all duration-200">
                                                 {Object.keys(row)
                                                   .filter((key) => !hiddenColumns[item.file]?.[key])
                                                   .map((key, i) => (
                                                     <td
                                                       key={i}
-                                                      className={`border p-2 whitespace-nowrap text-midnight-blue dark:text-frost-white ${
+                                                      className={`border p-2 whitespace-nowrap text-medium-gray dark:text-white ${
                                                         pinnedColumns[item.file]?.[key] ? "sticky z-10 bg-inherit" : ""
                                                       }`}
                                                       style={{
@@ -573,7 +561,7 @@ const MetadataViewer = () => {
                                       </div>
                                     </div>
                                     <div className="mt-6 w-full">
-                                      <h4 className="text-lg font-semibold mb-2 text-slate-teal dark:text-glacier-blue">Column Statistics</h4>
+                                      <h4 className="text-lg font-montserrat font-semibold mb-2 text-medium-gray dark:text-accent-blue">Column Statistics</h4>
                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {Object.keys(dataMap[item.file].data[0] || {}).length > 0 ? (
                                           Object.keys(dataMap[item.file].data[0]).map((col, idx) => {
@@ -581,9 +569,9 @@ const MetadataViewer = () => {
                                             return (
                                               <div
                                                 key={idx}
-                                                className="p-4 border rounded-lg shadow-sm bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md border-mist-gray/20 dark:border-frost-white/20 text-midnight-blue dark:text-frost-white"
+                                                className="p-4 border rounded-lg shadow-sm bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white"
                                               >
-                                                <h5 className="text-md font-medium mb-2 text-glacier-blue">{col}</h5>
+                                                <h5 className="text-md font-montserrat font-medium mb-2 text-accent-blue">{col}</h5>
                                                 {stats.type === "numeric" ? (
                                                   <div className="text-sm">
                                                     <p>Min: {stats.min !== null ? stats.min.toFixed(2) : "N/A"}</p>
@@ -607,14 +595,14 @@ const MetadataViewer = () => {
                                             );
                                           })
                                         ) : (
-                                          <p className="col-span-full text-center text-mist-gray dark:text-frost-white">
+                                          <p className="col-span-full text-center text-medium-gray dark:text-white">
                                             No column statistics available.
                                           </p>
                                         )}
                                       </div>
-                                      <h3 className="text-lg font-semibold mb-2 mt-6 text-slate-teal dark:text-glacier-blue">Data Distribution</h3>
+                                      <h3 className="text-lg font-montserrat font-semibold mb-2 mt-6 text-medium-gray dark:text-accent-blue">Data Distribution</h3>
                                       <select
-                                        className="mb-4 p-2 border rounded-md bg-frost-white/80 dark:bg-midnight-blue/80 backdrop-blur-md border-mist-gray/20 dark:border-frost-white/20 text-midnight-blue dark:text-frost-white focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300"
+                                        className="mb-4 p-2 border rounded-md bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300"
                                         value={selectedChartColumn[item.file] || ""}
                                         onChange={(e) =>
                                           setSelectedChartColumn((prev) => ({ ...prev, [item.file]: e.target.value }))
@@ -633,38 +621,38 @@ const MetadataViewer = () => {
                                           if (stats.type === "numeric") {
                                             const histogramData = generateHistogramData(dataMap[item.file].data, selectedChartColumn[item.file]);
                                             if (!histogramData)
-                                              return <p className="text-mist-gray dark:text-frost-white">No numeric data available for visualization</p>;
+                                              return <p className="text-medium-gray dark:text-white">No numeric data available for visualization</p>;
                                             return (
                                               <div className="w-full max-w-md mx-auto">
-                                                <h5 className="text-md font-medium mb-2 text-glacier-blue">Histogram</h5>
-                                                <div style={{ height: "400px", width: "100%", backgroundColor: darkMode ? "#1A1D2E" : "#F5F7FA" }}>
+                                                <h5 className="text-md font-montserrat font-medium mb-2 text-accent-blue">Histogram</h5>
+                                                <div style={{ height: "400px", width: "100%", backgroundColor: darkMode ? "#1A2526" : "#F5F5F5" }}>
                                                   <Bar
                                                     data={histogramData}
                                                     options={{
                                                       responsive: true,
                                                       maintainAspectRatio: false,
                                                       plugins: {
-                                                        legend: { position: "top", labels: { color: darkMode ? "#F5F7FA" : "#1A1D2E" } },
+                                                        legend: { position: "top", labels: { color: darkMode ? "#FFFFFF" : "#4A4A4A" } },
                                                         title: {
                                                           display: true,
                                                           text: `${selectedChartColumn[item.file]} Distribution`,
-                                                          color: darkMode ? "#F5F7FA" : "#1A1D2E",
+                                                          color: darkMode ? "#FFFFFF" : "#4A4A4A",
                                                         },
                                                         tooltip: {
-                                                          backgroundColor: darkMode ? "#3B6978" : "#F5F7FA",
-                                                          titleColor: darkMode ? "#F5F7FA" : "#1A1D2E",
-                                                          bodyColor: darkMode ? "#F5F7FA" : "#1A1D2E",
+                                                          backgroundColor: darkMode ? "#4A4A4A" : "#F5F5F5",
+                                                          titleColor: darkMode ? "#FFFFFF" : "#4A4A4A",
+                                                          bodyColor: darkMode ? "#FFFFFF" : "#4A4A4A",
                                                         },
                                                       },
                                                       scales: {
                                                         x: {
-                                                          ticks: { color: darkMode ? "#F5F7FA" : "#1A1D2E" },
-                                                          grid: { color: darkMode ? "#3B6978" : "#A3BFFA" },
+                                                          ticks: { color: darkMode ? "#FFFFFF" : "#4A4A4A" },
+                                                          grid: { color: darkMode ? "#4A4A4A" : "#E0E0E0" },
                                                         },
                                                         y: {
                                                           beginAtZero: true,
-                                                          ticks: { color: darkMode ? "#F5F7FA" : "#1A1D2E" },
-                                                          grid: { color: darkMode ? "#3B6978" : "#A3BFFA" },
+                                                          ticks: { color: darkMode ? "#FFFFFF" : "#4A4A4A" },
+                                                          grid: { color: darkMode ? "#4A4A4A" : "#E0E0E0" },
                                                         },
                                                       },
                                                     }}
@@ -676,35 +664,35 @@ const MetadataViewer = () => {
                                             const barData = generateCategoricalBarData(stats.topValues, selectedChartColumn[item.file]);
                                             return (
                                               <div className="w-full max-w-md mx-auto">
-                                                <h5 className="text-md font-medium mb-2 text-glacier-blue">Top Values</h5>
-                                                <div style={{ height: "400px", width: "100%", backgroundColor: darkMode ? "#1A1D2E" : "#F5F7FA" }}>
+                                                <h5 className="text-md font-montserrat font-medium mb-2 text-accent-blue">Top Values</h5>
+                                                <div style={{ height: "400px", width: "100%", backgroundColor: darkMode ? "#1A2526" : "#F5F5F5" }}>
                                                   <Bar
                                                     data={barData}
                                                     options={{
                                                       responsive: true,
                                                       maintainAspectRatio: false,
                                                       plugins: {
-                                                        legend: { position: "top", labels: { color: darkMode ? "#F5F7FA" : "#1A1D2E" } },
+                                                        legend: { position: "top", labels: { color: darkMode ? "#FFFFFF" : "#4A4A4A" } },
                                                         title: {
                                                           display: true,
                                                           text: `Top Values in ${selectedChartColumn[item.file]}`,
-                                                          color: darkMode ? "#F5F7FA" : "#1A1D2E",
+                                                          color: darkMode ? "#FFFFFF" : "#4A4A4A",
                                                         },
                                                         tooltip: {
-                                                          backgroundColor: darkMode ? "#3B6978" : "#F5F7FA",
-                                                          titleColor: darkMode ? "#F5F7FA" : "#1A1D2E",
-                                                          bodyColor: darkMode ? "#F5F7FA" : "#1A1D2E",
+                                                          backgroundColor: darkMode ? "#4A4A4A" : "#F5F5F5",
+                                                          titleColor: darkMode ? "#FFFFFF" : "#4A4A4A",
+                                                          bodyColor: darkMode ? "#FFFFFF" : "#4A4A4A",
                                                         },
                                                       },
                                                       scales: {
                                                         x: {
-                                                          ticks: { color: darkMode ? "#F5F7FA" : "#1A1D2E" },
-                                                          grid: { color: darkMode ? "#3B6978" : "#A3BFFA" },
+                                                          ticks: { color: darkMode ? "#FFFFFF" : "#4A4A4A" },
+                                                          grid: { color: darkMode ? "#4A4A4A" : "#E0E0E0" },
                                                         },
                                                         y: {
                                                           beginAtZero: true,
-                                                          ticks: { color: darkMode ? "#F5F7FA" : "#1A1D2E" },
-                                                          grid: { color: darkMode ? "#3B6978" : "#A3BFFA" },
+                                                          ticks: { color: darkMode ? "#FFFFFF" : "#4A4A4A" },
+                                                          grid: { color: darkMode ? "#4A4A4A" : "#E0E0E0" },
                                                         },
                                                       },
                                                     }}
@@ -726,7 +714,7 @@ const MetadataViewer = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={3} className="px-6 py-4 text-center text-mist-gray dark:text-frost-white">
+                      <td colSpan={3} className="px-6 py-4 text-center text-medium-gray dark:text-white">
                         No metadata available
                       </td>
                     </tr>
@@ -740,17 +728,17 @@ const MetadataViewer = () => {
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 bg-glacier-blue text-frost-white rounded-md disabled:bg-mist-gray disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300 active:scale-95"
+                  className="px-4 py-2 bg-accent-blue text-white font-montserrat font-semibold rounded-md disabled:bg-subtle-gray disabled:cursor-not-allowed hover:bg-[#00B7F0] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300 active:scale-95"
                 >
                   Previous
                 </button>
-                <span className="text-sm text-midnight-blue dark:text-frost-white">
+                <span className="text-sm text-medium-gray dark:text-white">
                   Page {currentPage} of {Math.ceil(filteredMetadata.length / itemsPerPage)}
                 </span>
                 <button
                   onClick={() => setCurrentPage((p) => p + 1)}
                   disabled={currentPage * itemsPerPage >= filteredMetadata.length}
-                  className="px-4 py-2 bg-glacier-blue text-frost-white rounded-md disabled:bg-mist-gray disabled:cursor-not-allowed hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-glacier-blue transition-all duration-300 active:scale-95"
+                  className="px-4 py-2 bg-accent-blue text-white font-montserrat font-semibold rounded-md disabled:bg-subtle-gray disabled:cursor-not-allowed hover:bg-[#00B7F0] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300 active:scale-95"
                 >
                   Next
                 </button>
