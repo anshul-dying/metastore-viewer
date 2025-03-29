@@ -3,18 +3,16 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
-  darkMode: "class", // Enable dark mode with the "dark" class
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        // Existing colors
         "deep-teal": "#1A2526",
         "light-gray": "#F5F5F5",
         "accent-blue": "#00A1D6",
         "medium-gray": "#4A4A4A",
         "subtle-gray": "#E0E0E0",
-        // New color for dark mode boxes
-        "dark-teal": "#2A3536", // Slightly lighter than deep-teal
+        "dark-teal": "#2A3536",
       },
       fontFamily: {
         montserrat: ["Montserrat", "sans-serif"],
@@ -26,7 +24,16 @@ module.exports = {
         "body": ["1rem", { lineHeight: "1.6" }],
         "small": ["0.875rem", { lineHeight: "1.5" }],
       },
+      backdropBlur: {
+        md: "8px",
+      },
+      boxShadow: {
+        lg: "0 10px 20px rgba(0, 0, 0, 0.2)",
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/aspect-ratio'),
+    require('@tailwindcss/forms'),
+  ],
 };

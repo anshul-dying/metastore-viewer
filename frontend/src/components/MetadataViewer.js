@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { motion } from "framer-motion";
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -56,7 +57,7 @@ const formatFileSize = (bytes) => {
   const k = 1024;
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  return parseFloat((bytes / Math.pow(k, 0)).toFixed(2)) + " " + sizes[i];
 };
 
 // Utility to format data types
@@ -144,8 +145,8 @@ const generateCategoricalBarData = (topValues, column) => {
       {
         label: `Top Values in ${column}`,
         data,
-        backgroundColor: "rgba(74, 74, 74, 0.6)", // Medium Gray with opacity
-        borderColor: "#4A4A4A", // Medium Gray
+        backgroundColor: "rgba(0, 161, 214, 0.6)", // Changed to Accent Blue with opacity
+        borderColor: "#00A1D6", // Changed to Accent Blue
         borderWidth: 1,
       },
     ],
@@ -381,10 +382,11 @@ const MetadataViewer = ({ darkMode }) => {
                           </td>
                         </tr>
 
+                        {/* View Details Section */}
                         {expandedItem === item.file && (
                           <tr>
                             <td colSpan={3} className="p-6">
-                              <div className="p-4 rounded-lg shadow-md border-l-4 border-accent-blue dark:border-white bg-white dark:bg-dark-teal">
+                              <div className="p-6 rounded-lg shadow-md bg-white dark:bg-dark-teal border border-subtle-gray dark:border-white/20">
                                 {item.details && item.details.error && (
                                   <p className="text-red-500 mb-4">Error: {item.details.error}</p>
                                 )}
@@ -436,10 +438,11 @@ const MetadataViewer = ({ darkMode }) => {
                           </tr>
                         )}
 
+                        {/* View Data Section */}
                         {dataMap[item.file] && (
                           <tr>
                             <td colSpan={3} className="p-6">
-                              <div className="p-4 rounded-lg shadow-md border-l-4 border-accent-blue dark:border-white bg-white dark:bg-dark-teal">
+                              <div className="p-6 rounded-lg shadow-md bg-white dark:bg-dark-teal border-2 border-subtle-gray dark:border-accent-blue">
                                 <div className="flex justify-between items-center mb-2">
                                   <h3 className="text-lg font-montserrat font-semibold text-medium-gray dark:text-accent-blue">
                                     Sample Data: {dataMap[item.file].file}
@@ -561,37 +564,65 @@ const MetadataViewer = ({ darkMode }) => {
                                       </div>
                                     </div>
                                     <div className="mt-6 w-full">
-                                      <h4 className="text-lg font-montserrat font-semibold mb-2 text-medium-gray dark:text-accent-blue">Column Statistics</h4>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      <h4 className="text-lg font-montserrat font-semibold mb-6 text-medium-gray dark:text-accent-blue relative inline-block">
+                                        Column Statistics
+                                        <span className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-accent-blue to-transparent opacity-50 glow-effect"></span>
+                                      </h4>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {Object.keys(dataMap[item.file].data[0] || {}).length > 0 ? (
                                           Object.keys(dataMap[item.file].data[0]).map((col, idx) => {
                                             const stats = computeColumnStats(dataMap[item.file].data, col);
                                             return (
-                                              <div
+                                              <motion.div
                                                 key={idx}
-                                                className="p-4 border rounded-lg shadow-sm bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white"
+                                                className="relative p-6 rounded-xl shadow-lg bg-dark-teal/80 backdrop-blur-md border border-white/10 glassmorphism-card overflow-hidden"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.5, delay: idx * 0.01 }}
+                                                whileHover={{ scale: 1.03, boxShadow: "0 10px 20px rgba(0, 161, 214, 0.2)" }}
                                               >
-                                                <h5 className="text-md font-montserrat font-medium mb-2 text-accent-blue">{col}</h5>
+                                                {/* Subtle Gradient Overlay */}
+                                                <div className="absolute inset-0 bg-gradient-to-br from-accent-blue/10 to-transparent opacity-30 pointer-events-none"></div>
+
+                                                {/* Column Name with Neon Effect */}
+                                                <h5 className="text-md font-montserrat font-medium mb-4 text-accent-blue relative inline-block">
+                                                  {col}
+                                                  <span className="absolute -bottom-0.5 left-0 w-full h-0.5 bg-accent-blue opacity-70 glow-effect"></span>
+                                                </h5>
+
+                                                {/* Statistics Content */}
                                                 {stats.type === "numeric" ? (
-                                                  <div className="text-sm">
-                                                    <p>Min: {stats.min !== null ? stats.min.toFixed(2) : "N/A"}</p>
-                                                    <p>Max: {stats.max !== null ? stats.max.toFixed(2) : "N/A"}</p>
-                                                    <p>Mean: {stats.mean !== null ? stats.mean.toFixed(2) : "N/A"}</p>
-                                                    <p>Std Dev: {stats.std !== null ? stats.std.toFixed(2) : "N/A"}</p>
+                                                  <div className="text-sm space-y-2 text-white">
+                                                    <p>
+                                                      <span className="font-semibold text-accent-blue/80">Min:</span>{" "}
+                                                      {stats.min !== null ? stats.min.toFixed(2) : "N/A"}
+                                                    </p>
+                                                    <p>
+                                                      <span className="font-semibold text-accent-blue/80">Max:</span>{" "}
+                                                      {stats.max !== null ? stats.max.toFixed(2) : "N/A"}
+                                                    </p>
+                                                    <p>
+                                                      <span className="font-semibold text-accent-blue/80">Mean:</span>{" "}
+                                                      {stats.mean !== null ? stats.mean.toFixed(2) : "N/A"}
+                                                    </p>
+                                                    <p>
+                                                      <span className="font-semibold text-accent-blue/80">Std Dev:</span>{" "}
+                                                      {stats.std !== null ? stats.std.toFixed(2) : "N/A"}
+                                                    </p>
                                                   </div>
                                                 ) : (
-                                                  <div className="text-sm">
-                                                    <p>Top 5 Values:</p>
-                                                    <ul className="list-disc pl-5">
+                                                  <div className="text-sm text-white">
+                                                    <p className="font-semibold text-accent-blue/80 mb-2">Top 5 Values:</p>
+                                                    <ul className="list-disc pl-5 space-y-1">
                                                       {stats.topValues.map(([value, count], i) => (
                                                         <li key={i}>
-                                                          {value}: {count}
+                                                          {value}: <span className="text-accent-blue/80">{count}</span>
                                                         </li>
                                                       ))}
                                                     </ul>
                                                   </div>
                                                 )}
-                                              </div>
+                                              </motion.div>
                                             );
                                           })
                                         ) : (
