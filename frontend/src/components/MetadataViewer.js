@@ -40,12 +40,10 @@ class ErrorBoundary extends React.Component {
 
 // Enhanced file icon handling
 const getFileIcon = (extension, format) => {
-    // First check for table formats
     if (format === "delta") return <FaFileCode className="text-blue-500" />;
     if (format === "iceberg") return <FaFileCode className="text-purple-500" />;
     if (format === "hudi") return <FaFileCode className="text-orange-500" />;
 
-    // Then check file extensions
     const ext = extension.toLowerCase();
     if (["xls", "xlsx", "csv"].includes(ext)) return <FaFileExcel className="text-green-500" />;
     if (["pdf"].includes(ext)) return <FaFilePdf className="text-red-500" />;
@@ -295,6 +293,7 @@ const MetadataViewer = ({ darkMode }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [partitionSearchQuery, setPartitionSearchQuery] = useState("");
     const [dataMap, setDataMap] = useState({});
     const [loadingDataMap, setLoadingDataMap] = useState({});
     const [currentPage, setCurrentPage] = useState(1);
@@ -457,6 +456,7 @@ const MetadataViewer = ({ darkMode }) => {
         setSelectedPartition(null);
         setPartitionData(null);
         setSnapshotChanges(null);
+        setPartitionSearchQuery("");
     };
 
     const openDataModal = (item) => {
@@ -590,20 +590,39 @@ const MetadataViewer = ({ darkMode }) => {
                                 <h4 className="text-lg font-montserrat font-semibold mb-4 text-medium-gray dark:text-accent-blue">Partition Details</h4>
                                 {selectedItem.details && Array.isArray(selectedItem.details.partitions) && selectedItem.details.partitions.length > 0 ? (
                                     <div className="space-y-4">
+                                        <div className="mb-4">
+                                            <input
+                                                type="text"
+                                                placeholder="Filter partitions (e.g., country=UK)"
+                                                value={partitionSearchQuery}
+                                                onChange={(e) => {
+                                                    setPartitionSearchQuery(e.target.value);
+                                                    setSelectedPartition(null);
+                                                    setPartitionData(null);
+                                                }}
+                                                className="w-full p-2 rounded-lg border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300"
+                                            />
+                                        </div>
                                         <div className="flex flex-wrap gap-2">
-                                            {selectedItem.details.partitions.map((partition, i) => (
-                                                <motion.button
-                                                    key={i}
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
-                                                    className={`p-3 rounded-md border border-subtle-gray dark:border-white/20 bg-white/50 dark:bg-dark-teal/50 cursor-pointer ${selectedPartition === partition ? "bg-accent-blue/20 border-accent-blue" : ""}`}
-                                                    onClick={() => handlePartitionClick(partition)}
-                                                >
-                                                    <div className="flex flex-col space-y-1">
-                                                        {formatPartitionDisplay(partition)}
-                                                    </div>
-                                                </motion.button>
-                                            ))}
+                                            {selectedItem.details.partitions
+                                                .filter(partition =>
+                                                    partitionSearchQuery
+                                                        ? partition.toLowerCase().includes(partitionSearchQuery.toLowerCase())
+                                                        : true
+                                                )
+                                                .map((partition, i) => (
+                                                    <motion.button
+                                                        key={i}
+                                                        whileHover={{ scale: 1.05 }}
+                                                        whileTap={{ scale: 0.95 }}
+                                                        className={`p-3 rounded-md border border-subtle-gray dark:border-white/20 bg-white/50 dark:bg-dark-teal/50 cursor-pointer ${selectedPartition === partition ? "bg-accent-blue/20 border-accent-blue" : ""}`}
+                                                        onClick={() => handlePartitionClick(partition)}
+                                                    >
+                                                        <div className="flex flex-col space-y-1">
+                                                            {formatPartitionDisplay(partition)}
+                                                        </div>
+                                                    </motion.button>
+                                                ))}
                                         </div>
                                         <AnimatePresence>
                                             {selectedPartition && (
@@ -695,7 +714,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                 />
                                             </div>
                                         </div>
-
                                         <div className="bg-white dark:bg-dark-teal/50 rounded-lg p-4">
                                             <h5 className="text-md font-semibold text-medium-gray dark:text-accent-blue mb-4">
                                                 Explore Partition Data
@@ -716,7 +734,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                     </option>
                                                 ))}
                                             </select>
-
                                             {selectedPartition && loadingPartitionData && <LoadingSpinner />}
                                             {selectedPartition && partitionData && partitionData.data && (
                                                 <div className="mt-4">
@@ -832,7 +849,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                 </motion.div>
                                             ))}
                                         </div>
-
                                         {selectedSnapshot && (
                                             <motion.div
                                                 initial={{ opacity: 0, height: 0 }}
@@ -853,7 +869,7 @@ const MetadataViewer = ({ darkMode }) => {
                                                             <span className="text-xs text-medium-gray dark:text-white">
                                                                 {new Date(
                                                                     selectedSnapshot.timestamp.length === 14
-                                                                        ? `${selectedSnapshot.timestamp.slice(0, 4)}-${selectedSnapshot.timestamp.slice(4, 6)}-${selectedSnapshot.timestamp.slice(6, 8)} ${selectedSnapshot.timestamp.slice(8, 10)}:${selectedSnapshot.timestamp.slice(10, 12)}:${selectedSnapshot.timestamp.slice(12, 14)}`
+                                                                        ? `${selectedSnapshot.timestamp.slice(0, 4)}-${selectedSnapshot.slice(4, 6)}-${selectedSnapshot.timestamp.slice(6, 8)} ${selectedSnapshot.timestamp.slice(8, 10)}:${selectedSnapshot.timestamp.slice(10, 12)}:${selectedSnapshot.timestamp.slice(12, 14)}`
                                                                         : selectedSnapshot.timestamp
                                                                 ).toLocaleString()}
                                                             </span>
@@ -865,7 +881,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                         </span>
                                                     )}
                                                 </div>
-
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                                     <div className="space-y-2">
                                                         <h6 className="text-sm font-semibold text-medium-gray dark:text-white">Operation Details</h6>
@@ -882,7 +897,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                             </div>
                                                         )}
                                                     </div>
-
                                                     {selectedSnapshot.operation_metrics && (
                                                         <div>
                                                             <h6 className="text-sm font-semibold text-medium-gray dark:text-white mb-2">Metrics</h6>
@@ -901,8 +915,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                         </div>
                                                     )}
                                                 </div>
-
-                                                {/* Changes Section */}
                                                 <div className="border-t border-subtle-gray/20 dark:border-white/10 pt-4">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <h5 className="text-lg font-semibold text-accent-blue">
@@ -926,12 +938,10 @@ const MetadataViewer = ({ darkMode }) => {
                                                             )}
                                                         </div>
                                                     </div>
-
                                                     {loadingSnapshotChanges ? (
                                                         <LoadingSpinner />
                                                     ) : snapshotChanges ? (
                                                         <div className="space-y-6">
-                                                            {/* Added Records */}
                                                             {snapshotChanges.added?.length > 0 && (
                                                                 <div className="bg-green-50 dark:bg-green-900/10 rounded-lg overflow-hidden border border-green-100 dark:border-green-900/20">
                                                                     <div className="bg-green-100 dark:bg-green-900/20 px-4 py-2 flex items-center">
@@ -980,8 +990,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                                     </div>
                                                                 </div>
                                                             )}
-
-                                                            {/* Updated Records */}
                                                             {snapshotChanges.updated?.length > 0 && (
                                                                 <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-lg overflow-hidden border border-yellow-100 dark:border-yellow-900/20">
                                                                     <div className="bg-yellow-100 dark:bg-yellow-900/20 px-4 py-2 flex items-center">
@@ -1032,8 +1040,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                                     </div>
                                                                 </div>
                                                             )}
-
-                                                            {/* Deleted Records */}
                                                             {snapshotChanges.deleted?.length > 0 && (
                                                                 <div className="bg-red-50 dark:bg-red-900/10 rounded-lg overflow-hidden border border-red-100 dark:border-red-900/20">
                                                                     <div className="bg-red-100 dark:bg-red-900/20 px-4 py-2 flex items-center">
@@ -1082,7 +1088,6 @@ const MetadataViewer = ({ darkMode }) => {
                                                                     </div>
                                                                 </div>
                                                             )}
-
                                                             {!snapshotChanges.added?.length &&
                                                                 !snapshotChanges.updated?.length &&
                                                                 !snapshotChanges.deleted?.length && (
@@ -1238,21 +1243,25 @@ const MetadataViewer = ({ darkMode }) => {
                                                 return (
                                                     <motion.div
                                                         key={idx}
-                                                        className="p-4 rounded-xl shadow-lg bg-dark-teal/80 backdrop-blur-md border border-white/10"
+                                                        className={`p-4 rounded-xl shadow-lg dark:bg-dark-teal/80 backdrop-blur-md border border-white/10 ${
+                                                            darkMode 
+                                                                ? 'hover:shadow-[0_0_15px_rgba(0,161,214,0.5)]' 
+                                                                : 'hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]'
+                                                        } transition-shadow duration-300`}
                                                         initial={{ opacity: 0, y: 20 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ duration: 0.3, delay: idx * 0.05 }}
                                                     >
                                                         <h5 className="text-md font-montserrat font-medium mb-2 text-accent-blue">{col}</h5>
                                                         {stats.type === "numeric" ? (
-                                                            <div className="text-sm space-y-2 text-white">
+                                                            <div className="text-sm space-y-2 text-black dark:text-white">
                                                                 <p><span className="font-semibold text-accent-blue/80">Min:</span> {stats.min !== null ? stats.min.toFixed(2) : "N/A"}</p>
                                                                 <p><span className="font-semibold text-accent-blue/80">Max:</span> {stats.max !== null ? stats.max.toFixed(2) : "N/A"}</p>
                                                                 <p><span className="font-semibold text-accent-blue/80">Mean:</span> {stats.mean !== null ? stats.mean.toFixed(2) : "N/A"}</p>
                                                                 <p><span className="font-semibold text-accent-blue/80">Std Dev:</span> {stats.std !== null ? stats.std.toFixed(2) : "N/A"}</p>
                                                             </div>
                                                         ) : (
-                                                            <div className="text-sm text-white">
+                                                            <div className="text-sm text-black dark:text-white">
                                                                 <p className="font-semibold text-accent-blue/80 mb-2">Top 5 Values:</p>
                                                                 <ul className="space-y-1">
                                                                     {stats.topValues.map(([value, count], i) => (
@@ -1352,7 +1361,6 @@ const MetadataViewer = ({ darkMode }) => {
                     <h1 className="text-2xl font-montserrat font-bold text-medium-gray dark:text-white mb-6">
                         Data Lake Explorer
                     </h1>
-
                     <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 mb-6">
                         <input
                             type="text"
@@ -1368,7 +1376,6 @@ const MetadataViewer = ({ darkMode }) => {
                             Browse
                         </button>
                     </form>
-
                     {metadata.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <StatCard
@@ -1399,7 +1406,6 @@ const MetadataViewer = ({ darkMode }) => {
                             />
                         </div>
                     )}
-
                     {metadata.length > 0 && (
                         <div className="mb-6">
                             <input
@@ -1411,7 +1417,6 @@ const MetadataViewer = ({ darkMode }) => {
                         </div>
                     )}
                 </div>
-
                 {loading ? (
                     <LoadingSpinner />
                 ) : error ? (
@@ -1484,7 +1489,6 @@ const MetadataViewer = ({ darkMode }) => {
                                         </tbody>
                                     </table>
                                 </div>
-
                                 <div className="flex justify-between items-center px-6 py-4 bg-white dark:bg-dark-teal border-t border-subtle-gray dark:border-white/10">
                                     <div className="text-sm text-medium-gray dark:text-white">
                                         Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
@@ -1533,7 +1537,6 @@ const MetadataViewer = ({ darkMode }) => {
                         )}
                     </div>
                 )}
-
                 <Modal
                     isOpen={detailsModalOpen}
                     onClose={() => setDetailsModalOpen(false)}
@@ -1542,7 +1545,6 @@ const MetadataViewer = ({ darkMode }) => {
                 >
                     {renderModalContent("details")}
                 </Modal>
-
                 <Modal
                     isOpen={dataModalOpen}
                     onClose={() => setDataModalOpen(false)}
