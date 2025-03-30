@@ -17,8 +17,18 @@ Tech Stack
 **Storage:** MinIO (S3-compatible)  
 **Containerization:** Docker  
 
-
-Installation & Setup
+Require Libraries 
+- flask
+- boto3
+- pyarrow
+- pyiceberg
+- deltalake
+- pandas 
+- minio 
+- fastparquet
+- awscli
+- flask_cors
+- Installation & Setup
 
 1. Clone the repository:
    ```sh
