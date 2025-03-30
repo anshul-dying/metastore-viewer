@@ -36,13 +36,37 @@ Require Libraries
    cd metastore-viewer
    ```
 
-3. Start the backend:
+2. Start Docker Minio
+   ```sh
+   docker run -d --name minio `
+     -p 9000:9000 -p 9090:9090 `
+     -e "MINIO_ROOT_USER=admin" `
+     -e "MINIO_ROOT_PASSWORD=password" `
+     quay.io/minio/minio server /data --console-address ":9090"
+   ```
+3. Configure aws (requires awscli library in venv)
+   ```sh
+   aws configure set aws_access_key_id admin
+   aws configure set aws_secret_access_key password
+   aws configure set region us-east-1
+   ```
+4. Upload Test parquet files in minio/test-bucket
+   ```sh
+   aws --endpoint-url=http://localhost:9000 s3 mb s3://test-bucket-
+   aws --endpoint-url=http://localhost:9000 s3 cp flights-1m.parquet s3://test-bucket/flights-1m.parquet
+   aws --endpoint-url=http://localhost:9000 s3 cp weather.parquet s3://test-bucket/weather.parquet
+   ```
+
+2. Start the backend:
    ```sh
    cd backend
+   python -m venv venv
+   ./venv/Scripts/activate
+   pip install -r requirements.txt
    python app.py
    ```
 
-5. Start the frontend:
+3. Start the frontend:
    ```sh
    cd frontend
    npm install
@@ -52,8 +76,10 @@ Require Libraries
 API Endpoints 
 | Method | Endpoint | Description |
 |--------|---------|-------------|
-| GET | `/tables` | List all available tables |
-| GET | `/tables/{table_name}` | Get metadata for a specific table|
+| GET | `/metadata?bucket=BUCKET_NAME&prefix=` | To get metadata  |
+| GET | `/snapshot_changes?file=filename&bucket=BUCKET_NAME` | Get snapshot changes | 
+| GET | `/data?file=filename&bucket=BUCKET_NAME&version=num&max_rows=100` | Get snapshot changes |
+| GET | `/partition_data?file=filename&bucket=BUCKET_NAME&partition=num&max_rows=100` | Get snapshot changes|
 
 
 Contributors
