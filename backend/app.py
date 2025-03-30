@@ -56,21 +56,27 @@ def detect_table_format(s3_bucket, prefix=""):
     if any(obj.startswith(delta_log_prefix) for obj in objects):
         return "delta"
     
-    # Check for Hudi
-    if any(obj.startswith(prefix + ".hoodie/") for obj in objects):
+    hudi_metadata_files = [
+        obj for obj in objects 
+        if '.hoodie/' in obj and 
+        any(obj.endswith(x) for x in ['hoodie.properties', 'instant.json', '.commit'])
+    ]
+    if hudi_metadata_files:
         return "hudi"
     
-    # Check for Iceberg (new improved check)
-    iceberg_metadata_files = [
-        obj for obj in objects 
-        if 'metadata/' in obj and obj.endswith('.metadata.json')
+    # Enhanced Iceberg detection
+    iceberg_metadata = [
+        obj for obj in objects
+        if 'metadata/' in obj and 
+        (obj.endswith('.metadata.json') or 
+         obj.endswith('.avro'))
     ]
-    if iceberg_metadata_files:
-        return "iceberg"
     
-    # Check for older Iceberg metadata locations
-    if any(obj.endswith('/metadata.json') for obj in objects):
-        return "iceberg"
+    if iceberg_metadata:
+        # Verify at least one snapshot exists
+        snapshots = [obj for obj in objects if 'snapshots/' in obj]
+        if snapshots:
+            return "iceberg"
     
     # Check for single Parquet file (could be part of any format)
     if len(objects) == 1 and objects[0].endswith(".parquet"):
@@ -467,36 +473,42 @@ def get_hudi_metadata(s3_bucket, prefix):
 
 def get_iceberg_metadata(s3_bucket, prefix):
     try:
-        # Clean up the prefix
         prefix = prefix.rstrip('/')
         
-        # Initialize Iceberg catalog with REST configuration
+        # Initialize catalog with explicit configuration
         catalog = load_catalog(
             "default",
             **{
                 "type": "rest",
                 "uri": f"{S3_ENDPOINT}/iceberg",
+                "warehouse": f"s3://{s3_bucket}",
                 "s3.endpoint": S3_ENDPOINT,
                 "s3.access-key-id": AWS_ACCESS_KEY_ID,
                 "s3.secret-access-key": AWS_SECRET_ACCESS_KEY,
-                "warehouse": f"s3://{BUCKET_NAME}/iceberg_warehouse",
                 "io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO"
             }
         )
+
+        # Try multiple naming formats
+        table_identifiers = [
+            prefix.replace('/', '.'),
+            f"{s3_bucket}.{prefix.replace('/', '.')}",
+            prefix.split('/')[-1]  # Just the table name
+        ]
         
-        # The table identifier should be just the prefix without bucket name
-        table_identifier = prefix.replace('/', '.')
-        
-        try:
-            table = catalog.load_table(table_identifier)
-        except NoSuchTableError:
-            # Try alternative naming if default load fails
-            table_identifier = f"{s3_bucket}.{table_identifier}"
-            table = catalog.load_table(table_identifier)
-        
-        # Get schema
-        schema = [{"name": f.name, "type": str(f.type), "nullable": not f.required} 
-                 for f in table.schema().fields]
+        table = None
+        for identifier in table_identifiers:
+            try:
+                table = catalog.load_table(identifier)
+                break
+            except NoSuchTableError:
+                continue
+                
+        if not table:
+            return {"file": prefix, "details": {"error": "Iceberg table not found"}}
+
+        # Force metadata refresh
+        table.refresh()
         
         # Get partition information
         partition_keys = [spec.field_name for spec in table.spec().fields]
@@ -774,36 +786,116 @@ def get_data():
                               })
             table = dt.to_pyarrow_table().slice(0, max_rows)
         elif format_type == "hudi":
-            parquet_files = [obj for obj in list_s3_objects(bucket, file_name) if obj.endswith(".parquet")]
-            if version:
-                # Hudi versions are based on commit timestamps
-                matching_files = [f for f in parquet_files if version in f]
-                if matching_files:
-                    file_key = matching_files[0]
-                else:
-                    return jsonify({"error": "Version not found"}), 404
-            else:
-                file_key = parquet_files[-1]  # Latest file
-            obj = s3_client.get_object(Bucket=bucket, Key=file_key)
-            file_stream = BytesIO(obj["Body"].read())
-            parquet_file = pq.ParquetFile(file_stream)
-            table = parquet_file.read_row_group(0).slice(0, max_rows)
+            try:
+                # Get all data files (excluding .hoodie and crc files)
+                all_files = list_s3_objects(bucket, file_name)
+                parquet_files = [
+                    obj for obj in all_files 
+                    if obj.endswith('.parquet') and 
+                    not obj.startswith('.hoodie/') and
+                    not obj.endswith('.crc')
+                ]
+
+                if not parquet_files:
+                    return jsonify({"error": "No data files found in Hudi table"}), 404
+
+                # If version specified, find files matching that version
+                if version:
+                    # Hudi versions are typically timestamps (e.g., 20240330010101)
+                    version_files = [f for f in parquet_files if version in f]
+                    if version_files:
+                        parquet_files = version_files
+                    else:
+                        return jsonify({"error": f"No files found for version {version}"}), 404
+
+                # Read and combine data from parquet files
+                tables = []
+                for file_key in parquet_files[:10]:  # Limit to 10 files for safety
+                    try:
+                        # Skip CRC files explicitly
+                        if file_key.endswith('.crc'):
+                            continue
+                            
+                        obj = s3_client.get_object(Bucket=bucket, Key=file_key)
+                        file_stream = BytesIO(obj["Body"].read())
+                        
+                        # Read parquet file with proper error handling
+                        try:
+                            parquet_file = pq.ParquetFile(file_stream)
+                            # Read first row group with limit
+                            table = parquet_file.read_row_group(0).slice(0, max_rows)
+                            tables.append(table)
+                        except Exception as e:
+                            app.logger.warning(f"Error reading {file_key}: {str(e)}")
+                            continue
+                            
+                    except Exception as e:
+                        app.logger.warning(f"Error accessing {file_key}: {str(e)}")
+                        continue
+
+                if not tables:
+                    return jsonify({"error": "Could not read any valid data files"}), 500
+
+                # Combine all tables and apply final row limit
+                combined = pa.concat_tables(tables).slice(0, max_rows)
+                df = combined.to_pandas()
+                
+                return jsonify({
+                    "file": file_name,
+                    "version": version if version else "latest",
+                    "data": df.to_dict(orient="records")
+                })
+
+            except Exception as e:
+                app.logger.error(f"Hudi data fetch failed: {str(e)}")
+                return jsonify({
+                    "error": "Failed to read Hudi table data",
+                    "details": str(e),
+                    "debug": {
+                        "bucket": bucket,
+                        "path": file_name,
+                        "version": version
+                    }
+                }), 500
+
         elif format_type == "iceberg":
-            catalog = load_catalog(
-                "default",
-                **{
-                    "uri": S3_ENDPOINT,
-                    "s3.endpoint": S3_ENDPOINT,
-                    "s3.access-key-id": AWS_ACCESS_KEY_ID,
-                    "s3.secret-access-key": AWS_SECRET_ACCESS_KEY,
-                }
-            )
-            table = catalog.load_table(f"{bucket}.{file_name.strip('/')}")
-            if version:
-                table_scan = table.scan(snapshot_id=int(version))
-            else:
-                table_scan = table.scan()
-            table = table_scan.to_arrow().slice(0, max_rows)
+            try:
+                # Initialize Iceberg catalog
+                catalog = load_catalog(
+                    "default",
+                    **{
+                        "uri": S3_ENDPOINT,
+                        "s3.endpoint": S3_ENDPOINT,
+                        "s3.access-key-id": AWS_ACCESS_KEY_ID,
+                        "s3.secret-access-key": AWS_SECRET_ACCESS_KEY,
+                        "warehouse": f"s3://{bucket}",
+                    }
+                )
+                
+                # Load table
+                table = catalog.load_table(file_name.replace('/', '.'))
+                
+                # Configure scan with limit
+                scan = table.scan()
+                if version:
+                    scan = scan.use_snapshot(int(version))
+                
+                # Execute scan with limit
+                arrow_table = scan.to_arrow()
+                limited_table = arrow_table.slice(0, max_rows)
+                df = limited_table.to_pandas()
+                
+                return jsonify({
+                    "file": file_name,
+                    "version": version if version else "latest",
+                    "data": df.to_dict(orient="records")
+                })
+
+            except NoSuchTableError:
+                return jsonify({"error": f"Iceberg table {file_name} not found"}), 404
+            except Exception as e:
+                app.logger.error(f"Error reading Iceberg table: {str(e)}")
+                return jsonify({"error": "Failed to read Iceberg table", "details": str(e)}), 500 
         elif format_type == "data_files":
             # Handle generic data files
             obj = s3_client.get_object(Bucket=bucket, Key=file_name)

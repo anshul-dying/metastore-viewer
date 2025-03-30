@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import Lottie from 'lottie-react';
 import { FaFileAlt, FaFileExcel, FaFilePdf, FaFileImage, FaFileCode, FaTimes } from "react-icons/fa";
 import { Bar, Pie } from "react-chartjs-2";
 import {
@@ -24,6 +25,88 @@ ChartJS.register(
     Legend,
     ArcElement
 );
+
+const loadingContainerStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '300px',
+    width: '100%'
+};
+
+const PartitionDataModal = ({
+    isOpen,
+    onClose,
+    partition,
+    data,
+    loading,
+    error
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black bg-opacity-50 p-4">
+            <div className="bg-white dark:bg-dark-teal rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b border-subtle-gray dark:border-white/20">
+                    <h3 className="text-lg font-montserrat font-semibold text-medium-gray dark:text-accent-blue">
+                        Partition Data: {partition}
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="Close"
+                    >
+                        <FaTimes className="text-medium-gray dark:text-white" />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-auto p-4">
+                    {loading ? (
+                        <LoadingSpinner />
+                    ) : error ? (
+                        <p className="text-red-500">{error}</p>
+                    ) : data && data.data ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal">
+                                <thead>
+                                    <tr className="bg-subtle-gray dark:bg-medium-gray">
+                                        {Object.keys(data.data[0] || {}).map((key) => (
+                                            <th
+                                                key={key}
+                                                className="p-2 whitespace-nowrap text-medium-gray dark:text-white text-left border"
+                                            >
+                                                {key}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.data.map((row, idx) => (
+                                        <tr
+                                            key={idx}
+                                            className="hover:bg-accent-blue/10 dark:hover:bg-white/10 transition-all duration-200"
+                                        >
+                                            {Object.values(row).map((value, i) => (
+                                                <td
+                                                    key={i}
+                                                    className="p-2 whitespace-nowrap text-medium-gray dark:text-white border"
+                                                >
+                                                    {value !== null ? value.toString() : 'NULL'}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="text-medium-gray dark:text-white">No data available for this partition</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 class ErrorBoundary extends React.Component {
     state = { hasError: false };
@@ -259,11 +342,28 @@ const Tabs = ({ tabs, activeTab, setActiveTab }) => {
     );
 };
 
-const LoadingSpinner = () => (
-    <div className="flex justify-center items-center h-32">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-blue dark:border-white"></div>
-    </div>
-);
+const LoadingSpinner = ({ withLottie = true }) => {
+    if (withLottie) {
+        return (
+            <div style={loadingContainerStyle}>
+                <Lottie
+                    animationData={require('../assets/hand-animation.json')}
+                    loop={true}
+                    style={{ width: 150, height: 150 }}
+                />
+                <p className="text-medium-gray dark:text-white mt-4">
+                    Loading your data...
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-blue dark:border-white"></div>
+        </div>
+    );
+};
 
 const StatCard = ({ title, value, icon, color = "blue" }) => {
     const colors = {
@@ -310,8 +410,26 @@ const MetadataViewer = ({ darkMode }) => {
     const [loadingPartitionData, setLoadingPartitionData] = useState(false);
     const [snapshotChanges, setSnapshotChanges] = useState(null);
     const [loadingSnapshotChanges, setLoadingSnapshotChanges] = useState(false);
+    const [partitionModalOpen, setPartitionModalOpen] = useState(false);
+    const [partitionsPage, setPartitionsPage] = useState(1);
+    const partitionsPerPage = 15;
 
     const itemsPerPage = 10;
+
+    const getCurrentPartitions = useMemo(() => {
+        if (!selectedItem?.details?.partitions) return [];
+
+        const startIndex = (partitionsPage - 1) * partitionsPerPage;
+        const endIndex = startIndex + partitionsPerPage;
+
+        return selectedItem.details.partitions
+            .filter(partition =>
+                partitionSearchQuery
+                    ? partition.toLowerCase().includes(partitionSearchQuery.toLowerCase())
+                    : true
+            )
+            .slice(startIndex, endIndex);
+    }, [selectedItem, partitionsPage, partitionSearchQuery]);
 
     const parsePath = (path) => {
         const match = path.match(/^(s3|azure|minio):\/\/([^/]+)(?:\/(.+))?$/);
@@ -457,6 +575,7 @@ const MetadataViewer = ({ darkMode }) => {
         setPartitionData(null);
         setSnapshotChanges(null);
         setPartitionSearchQuery("");
+        setPartitionsPage(1);
     };
 
     const openDataModal = (item) => {
@@ -494,7 +613,12 @@ const MetadataViewer = ({ darkMode }) => {
     };
 
     const handlePartitionClick = (partition) => {
+        // If clicking a different partition than currently selected
+        if (selectedPartition !== partition) {
+            setPartitionsPage(1); // Reset to first page
+        }
         setSelectedPartition(partition);
+        setPartitionModalOpen(true);
         fetchPartitionData(selectedItem, partition);
     };
 
@@ -604,76 +728,63 @@ const MetadataViewer = ({ darkMode }) => {
                                             />
                                         </div>
                                         <div className="flex flex-wrap gap-2">
-                                            {selectedItem.details.partitions
-                                                .filter(partition =>
-                                                    partitionSearchQuery
-                                                        ? partition.toLowerCase().includes(partitionSearchQuery.toLowerCase())
-                                                        : true
-                                                )
-                                                .map((partition, i) => (
-                                                    <motion.button
-                                                        key={i}
-                                                        whileHover={{ scale: 1.05 }}
-                                                        whileTap={{ scale: 0.95 }}
-                                                        className={`p-3 rounded-md border border-subtle-gray dark:border-white/20 bg-white/50 dark:bg-dark-teal/50 cursor-pointer ${selectedPartition === partition ? "bg-accent-blue/20 border-accent-blue" : ""}`}
-                                                        onClick={() => handlePartitionClick(partition)}
-                                                    >
-                                                        <div className="flex flex-col space-y-1">
-                                                            {formatPartitionDisplay(partition)}
-                                                        </div>
-                                                    </motion.button>
-                                                ))}
-                                        </div>
-                                        <AnimatePresence>
-                                            {selectedPartition && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                                                    transition={{ duration: 0.5, ease: "easeInOut" }}
-                                                    className="mt-4 p-4 rounded-lg bg-gradient-to-r from-accent-blue/10 to-purple-500/10 dark:from-dark-teal/50 dark:to-medium-gray/50 border border-accent-blue/30 shadow-lg"
+                                            {getCurrentPartitions.map((partition, i) => (
+                                                <motion.button
+                                                    key={i}
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    className={`p-3 rounded-md border border-subtle-gray dark:border-white/20 bg-white/50 dark:bg-dark-teal/50 cursor-pointer ${selectedPartition === partition ? "bg-accent-blue/20 border-accent-blue" : ""}`}
+                                                    onClick={() => handlePartitionClick(partition)}
                                                 >
-                                                    <h5 className="text-md font-montserrat font-semibold mb-3 text-accent-blue">
-                                                        <span>Data for Partition: </span>
-                                                        <div className="flex flex-wrap gap-2 mt-2">
-                                                            {formatPartitionDisplay(selectedPartition)}
-                                                        </div>
-                                                    </h5>
-                                                    {loadingPartitionData ? (
-                                                        <LoadingSpinner />
-                                                    ) : partitionData && partitionData.data ? (
-                                                        <div className="overflow-x-auto">
-                                                            <table className="w-full border-collapse border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal">
-                                                                <thead>
-                                                                    <tr className="bg-subtle-gray dark:bg-medium-gray">
-                                                                        {Object.keys(partitionData.data[0] || {}).map((key) => (
-                                                                            <th key={key} className="p-2 whitespace-nowrap text-medium-gray dark:text-white text-left border">
-                                                                                {key}
-                                                                            </th>
-                                                                        ))}
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {partitionData.data.map((row, idx) => (
-                                                                        <tr key={idx} className="hover:bg-accent-blue/10 dark:hover:bg-white/10 transition-all duration-200">
-                                                                            {Object.values(row).map((value, i) => (
-                                                                                <td key={i} className="p-2 whitespace-nowrap text-medium-gray dark:text-white border">
-                                                                                    {value}
-                                                                                </td>
-                                                                            ))}
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    ) : (
-                                                        <p className="text-medium-gray dark:text-white">
-                                                            {partitionData?.error || "No data available for this partition."}
-                                                        </p>
-                                                    )}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                                    <div className="flex flex-col space-y-1">
+                                                        {formatPartitionDisplay(partition)}
+                                                    </div>
+                                                </motion.button>
+                                            ))}
+                                        </div>
+                                        {selectedItem.details.partitions.length > partitionsPerPage && (
+                                            <div className="flex justify-center mt-4">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setPartitionsPage(prev => Math.max(prev - 1, 1));
+                                                            setSelectedPartition(null);
+                                                        }}
+                                                        disabled={partitionsPage === 1}
+                                                        className={`px-3 py-1 rounded-md ${partitionsPage === 1
+                                                            ? "bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
+                                                            : "bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20"
+                                                            } transition-colors`}
+                                                    >
+                                                        Previous
+                                                    </button>
+                                                    <span className="px-3 py-1 bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray dark:text-white rounded-md">
+                                                        {partitionsPage}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setPartitionsPage(prev => prev + 1);
+                                                            setSelectedPartition(null);
+                                                        }}
+                                                        disabled={partitionsPage >= Math.ceil(selectedItem.details.partitions.length / partitionsPerPage)}
+                                                        className={`px-3 py-1 rounded-md ${partitionsPage >= Math.ceil(selectedItem.details.partitions.length / partitionsPerPage)
+                                                            ? "bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
+                                                            : "bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20"
+                                                            } transition-colors`}
+                                                    >
+                                                        Next
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <PartitionDataModal
+                                            isOpen={partitionModalOpen}
+                                            onClose={() => setPartitionModalOpen(false)}
+                                            partition={selectedPartition}
+                                            data={partitionData}
+                                            loading={loadingPartitionData}
+                                            error={partitionData?.error}
+                                        />
                                     </div>
                                 ) : (
                                     <p className="text-medium-gray dark:text-white">No partitions</p>
@@ -821,12 +932,13 @@ const MetadataViewer = ({ darkMode }) => {
                                                                 ).toLocaleString()}
                                                             </div>
                                                         </div>
-                                                        {snap.is_current && (
+                                                        {snap.is_current && selectedSnapshot?.version === snap.version && (
                                                             <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full">
                                                                 Current
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {/* Rest of the snapshot card content remains the same */}
                                                     <div className="mt-2">
                                                         <div className="text-xs text-medium-gray dark:text-white">
                                                             Operation: <span className="font-medium">{snap.operation}</span>
@@ -1243,11 +1355,10 @@ const MetadataViewer = ({ darkMode }) => {
                                                 return (
                                                     <motion.div
                                                         key={idx}
-                                                        className={`p-4 rounded-xl shadow-lg dark:bg-dark-teal/80 backdrop-blur-md border border-white/10 ${
-                                                            darkMode 
-                                                                ? 'hover:shadow-[0_0_15px_rgba(0,161,214,0.5)]' 
-                                                                : 'hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]'
-                                                        } transition-shadow duration-300`}
+                                                        className={`p-4 rounded-xl shadow-lg dark:bg-dark-teal/80 backdrop-blur-md border border-white/10 ${darkMode
+                                                            ? 'hover:shadow-[0_0_15px_rgba(0,161,214,0.5)]'
+                                                            : 'hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]'
+                                                            } transition-shadow duration-300`}
                                                         initial={{ opacity: 0, y: 20 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ duration: 0.3, delay: idx * 0.05 }}
