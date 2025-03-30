@@ -491,6 +491,7 @@ const MetadataViewer = ({ darkMode }) => {
             { id: "partitions", label: "Partitions" },
             { id: "snapshots", label: "Snapshots" },
             { id: "metrics", label: "Metrics" },
+            { id: "visualizePartitions", label: "Visualize Partitions" },
         ];
 
         const dataTabs = [
@@ -499,6 +500,8 @@ const MetadataViewer = ({ darkMode }) => {
             { id: "stats", label: "Statistics" },
             { id: "visualization", label: "Visualization" },
         ];
+
+
 
         const tabs = isDetails ? detailsTabs : dataTabs;
 
@@ -603,6 +606,106 @@ const MetadataViewer = ({ darkMode }) => {
                                     </div>
                                 ) : (
                                     <p className="text-medium-gray dark:text-white">No partitions</p>
+                                )}
+                            </div>
+                        )}
+                        {activeTab === "visualizePartitions" && (
+                            <div>
+                                <h4 className="text-lg font-montserrat font-semibold mb-4 text-medium-gray dark:text-accent-blue">
+                                    Visualize Partitions
+                                </h4>
+                                {selectedItem.details && Array.isArray(selectedItem.details.partitions) && selectedItem.details.partitions.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {/* Dropdown for selecting partition */}
+                                        <select
+                                            className="mb-4 p-2 border rounded-md w-full max-w-md bg-white dark:bg-dark-teal border-subtle-gray dark:border-white/20 text-medium-gray dark:text-white"
+                                            value={selectedPartition || ""}
+                                            onChange={(e) => {
+                                                const partition = e.target.value;
+                                                setSelectedPartition(partition);
+                                                if (partition) fetchPartitionData(selectedItem, partition);
+                                            }}
+                                        >
+                                            <option value="">Select a partition to visualize</option>
+                                            {selectedItem.details.partitions.map((partition, i) => (
+                                                <option key={i} value={partition}>
+                                                    {partition}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {/* Visualization Section */}
+                                        {selectedPartition && (
+                                            <div className="bg-white dark:bg-dark-teal/50 rounded-lg p-4 mt-4 overflow-x-auto">
+                                                {loadingPartitionData ? (
+                                                    <LoadingSpinner />
+                                                ) : partitionData && partitionData.data && partitionData.data.length > 0 ? (
+                                                    <div className="space-y-6">
+                                                        {Object.keys(partitionData.data[0] || {}).map((col) => {
+                                                            const stats = computeColumnStats(partitionData.data, col);
+                                                            if (stats.type === "numeric") {
+                                                                const histogramData = generateHistogramData(partitionData.data, col);
+                                                                return histogramData ? (
+                                                                    <div key={col} className="h-64">
+                                                                        <Bar
+                                                                            data={{
+                                                                                ...histogramData,
+                                                                                datasets: [
+                                                                                    {
+                                                                                        ...histogramData.datasets[0],
+                                                                                        backgroundColor: "rgba(0, 161, 214, 0.6)", // Blue for dark mode
+                                                                                        borderColor: "#00A1D6",
+                                                                                        borderWidth: 1,
+                                                                                    },
+                                                                                ],
+                                                                            }}
+                                                                            options={{
+                                                                                responsive: true,
+                                                                                maintainAspectRatio: false,
+                                                                                plugins: {
+                                                                                    legend: {
+                                                                                        position: "top",
+                                                                                        labels: { color: darkMode ? "white" : "black" },
+                                                                                    },
+                                                                                    title: {
+                                                                                        display: true,
+                                                                                        text: `Distribution of ${col} in ${selectedPartition}`,
+                                                                                        color: darkMode ? "white" : "black",
+                                                                                    },
+                                                                                },
+                                                                                scales: {
+                                                                                    x: {
+                                                                                        ticks: { color: darkMode ? "white" : "black" },
+                                                                                        grid: { color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" },
+                                                                                    },
+                                                                                    y: {
+                                                                                        ticks: { color: darkMode ? "white" : "black" },
+                                                                                        grid: { color: darkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" },
+                                                                                    },
+                                                                                },
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                ) : null;
+                                                            }
+                                                            return null; // Skip non-numeric columns
+                                                        })}
+                                                        {Object.keys(partitionData.data[0] || {}).every((col) => computeColumnStats(partitionData.data, col).type !== "numeric") && (
+                                                            <p className="text-medium-gray dark:text-white">
+                                                                No numeric data available to visualize in this partition.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-medium-gray dark:text-white">
+                                                        {partitionData?.error || "No data available for this partition."}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-medium-gray dark:text-white">No partitions available to visualize</p>
                                 )}
                             </div>
                         )}
