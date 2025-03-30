@@ -1,23 +1,23 @@
-Metastore Viewer for Parquet, Iceberg, Delta & Hudi Tables on S3
+# Metastore Viewer for Parquet, Iceberg, Delta & Hudi Tables on S3
 
- Project Description
+## Project Description
 Metastore Viewer is a web-based tool designed to interact with Parquet, Iceberg, Delta, and Hudi tables stored in an 
 S3-compatible object store (MinIO). It provides a user-friendly interface to explore metadata, execute queries, and analyze data efficiently.
 
-Key Features
+## Key Features
 - Supports querying Parquet, Iceberg, Delta, and Hudi tables.
 - Uses **FastAPI** for the backend and **React** for the frontend.
 - Connects to an **S3-compatible object store** (MinIO) to fetch table metadata.
 - Provides an intuitive web interface for metadata visualization.
 - Eliminates the need for a traditional database.
 
-Tech Stack
+## Tech Stack
 **Frontend:** React, Tailwind CSS  
 **Backend:** FastAPI (Python)  
 **Storage:** MinIO (S3-compatible)  
 **Containerization:** Docker  
 
-Require Libraries 
+## Require Libraries 
 - flask
 - boto3
 - pyarrow
@@ -73,7 +73,7 @@ Require Libraries
    npm start
    ```
 
-API Endpoints 
+## API Endpoints 
 | Method | Endpoint | Description |
 |--------|---------|-------------|
 | GET | `/metadata?bucket=BUCKET_NAME&prefix=` | To get metadata  |
@@ -82,7 +82,7 @@ API Endpoints
 | GET | `/partition_data?file=filename&bucket=BUCKET_NAME&partition=num&max_rows=100` | Get snapshot changes|
 
 
-Contributors
+## Contributors
 | Name           |         Role        |                                                                       
 |------              |--------         |                                             
 | [Jayesh Bairagi](https://github.com/Thrasher2210)  | Backend Development |
