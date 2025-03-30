@@ -86,8 +86,8 @@ S3-compatible object store (MinIO). It provides a user-friendly interface to exp
 | Name           |         Role        |                                                                       
 |------              |--------         |                                             
 | [Jayesh Bairagi](https://github.com/Thrasher2210)  | Backend Development |
-| [Anshul Khaire](https://github.com/anshul-dying)  | Frontend Development |
-| [Soham Misal](https://github.com/Soham-Misal22)  | DevOps & Infrastructure |
-| [Anand Ambadkar](https://github.com/anand612)  | Testing & Documentation |
+| [Anshul Khaire](https://github.com/anshul-dying)  | Frontend+Flask Development |
+| [Soham Misal](https://github.com/Soham-Misal22)  | Frontend Development |
+| [Anand Ambadkar](https://github.com/anand612)  | Backend Development |
 
 
