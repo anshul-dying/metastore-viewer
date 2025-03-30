@@ -749,6 +749,134 @@ def get_data():
     except Exception as e:
         app.logger.error(f"Error fetching data for {file_name}: {str(e)}")
         return jsonify({"error": "Failed to fetch data", "details": str(e)}), 500
+    
+@app.route("/partition_data", methods=["GET"])
+def get_partition_data():
+    file_name = request.args.get("file")
+    bucket = request.args.get("bucket", BUCKET_NAME)
+    partition = request.args.get("partition")
+    max_rows = int(request.args.get("max_rows", 100))
+
+    if not file_name or not partition:
+        return jsonify({"error": "File and partition parameters are required"}), 400
+
+    format_type = detect_table_format(bucket, file_name)
+    try:
+        if format_type == "parquet_directory":
+            # Parse partition filters from the path
+            partition_filters = {}
+            for part in partition.split("/"):
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    partition_filters[key] = value
+            
+            # Find files matching the partition
+            parquet_files = []
+            for obj in list_s3_objects(bucket, file_name):
+                if obj.endswith(".parquet") and all(f"{k}={v}" in obj for k, v in partition_filters.items()):
+                    parquet_files.append(obj)
+            
+            if not parquet_files:
+                return jsonify({"error": "No data found for partition"}), 404
+            
+            # Read first matching file
+            obj = s3_client.get_object(Bucket=bucket, Key=parquet_files[0])
+            file_stream = BytesIO(obj["Body"].read())
+            parquet_file = pq.ParquetFile(file_stream)
+            table = parquet_file.read_row_group(0).slice(0, max_rows)
+            
+        elif format_type == "delta":
+            dt = DeltaTable(f"s3://{bucket}/{file_name}", storage_options={
+                "AWS_ENDPOINT_URL": S3_ENDPOINT,
+                "AWS_ACCESS_KEY_ID": AWS_ACCESS_KEY_ID,
+                "AWS_SECRET_ACCESS_KEY": AWS_SECRET_ACCESS_KEY,
+                "ALLOW_HTTP": "true"
+            })
+            
+            # Parse partition filters
+            partition_filters = {}
+            for part in partition.split("/"):
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    partition_filters[key] = value
+            
+            # Convert to PyArrow table and filter
+            table = dt.to_pyarrow_table()
+            
+            # Apply partition filters
+            import pyarrow.compute as pc
+            for key, value in partition_filters.items():
+                mask = pc.equal(pc.field(key), value)
+                table = table.filter(mask)
+            
+            table = table.slice(0, max_rows)
+            
+        elif format_type == "hudi":
+            # Parse partition filters
+            partition_filters = {}
+            for part in partition.split("/"):
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    partition_filters[key] = value
+            
+            # Find matching files
+            parquet_files = []
+            for obj in list_s3_objects(bucket, file_name):
+                if obj.endswith(".parquet") and all(f"{k}={v}" in obj for k, v in partition_filters.items()):
+                    parquet_files.append(obj)
+            
+            if not parquet_files:
+                return jsonify({"error": "No data found for partition"}), 404
+            
+            # Read first matching file
+            obj = s3_client.get_object(Bucket=bucket, Key=parquet_files[0])
+            file_stream = BytesIO(obj["Body"].read())
+            parquet_file = pq.ParquetFile(file_stream)
+            table = parquet_file.read_row_group(0).slice(0, max_rows)
+            
+        elif format_type == "iceberg":
+            catalog = load_catalog(
+                "default",
+                **{
+                    "uri": S3_ENDPOINT,
+                    "s3.endpoint": S3_ENDPOINT,
+                    "s3.access-key-id": AWS_ACCESS_KEY_ID,
+                    "s3.secret-access-key": AWS_SECRET_ACCESS_KEY,
+                }
+            )
+            table = catalog.load_table(f"{bucket}.{file_name.strip('/')}")
+            
+            # Parse partition filters
+            partition_filters = {}
+            for part in partition.split("/"):
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    partition_filters[key] = value
+            
+            # Filter by partition
+            scan = table.scan()
+            import pyarrow.compute as pc
+            for key, value in partition_filters.items():
+                scan = scan.filter(pc.field(key) == value)
+            table = scan.to_arrow().slice(0, max_rows)
+            
+        else:
+            return jsonify({"error": "Format does not support partitions"}), 400
+        
+        df = table.to_pandas()
+        sample_data = df.to_dict(orient="records")
+        
+        result = {
+            "file": file_name,
+            "partition": partition,
+            "data": sample_data
+        }
+        
+        return jsonify(convert_numpy_types(result))
+        
+    except Exception as e:
+        app.logger.error(f"Error fetching partition data: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

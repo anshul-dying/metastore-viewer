@@ -67,6 +67,19 @@ const formatDataType = (type) => {
     return type;
 };
 
+// New function to format partition strings
+const formatPartitionDisplay = (partition) => {
+    return partition.split('/').map((part, index) => {
+        const [key, value] = part.split('=');
+        return (
+            <div key={index} className="flex items-center">
+                <span className="font-semibold text-accent-blue mr-1">{key}:</span>
+                <span className="text-medium-gray dark:text-white">{value}</span>
+            </div>
+        );
+    });
+};
+
 const computeColumnStats = (data, column) => {
     const values = data.map((row) => row[column]);
     const isNumeric = values.every((val) => !isNaN(Number(val)) && val !== null);
@@ -346,6 +359,25 @@ const MetadataViewer = ({ darkMode }) => {
         }
     };
 
+    const fetchPartitionData = async (item, partition) => {
+        setLoadingPartitionData(true);
+        try {
+            const { bucket } = parsePath(objectStorePath);
+            const response = await axios.get("http://127.0.0.1:5000/partition_data", {
+                params: {
+                    file: item.file,
+                    bucket,
+                    partition
+                }
+            });
+            setPartitionData(response.data);
+        } catch (err) {
+            setPartitionData({ error: err.response?.data?.error || "Failed to fetch partition data" });
+        } finally {
+            setLoadingPartitionData(false);
+        }
+    };
+
     const fetchSnapshotChanges = async (item, snapshot) => {
         setLoadingSnapshotChanges(true);
         setSnapshotChanges(null);
@@ -416,8 +448,7 @@ const MetadataViewer = ({ darkMode }) => {
 
     const handlePartitionClick = (partition) => {
         setSelectedPartition(partition);
-        setLoadingPartitionData(true);
-        fetchData(selectedItem, null, partition);
+        fetchPartitionData(selectedItem, partition);
     };
 
     const handleSnapshotClick = (snapshot) => {
@@ -513,7 +544,9 @@ const MetadataViewer = ({ darkMode }) => {
                                                     className={`p-3 rounded-md border border-subtle-gray dark:border-white/20 bg-white/50 dark:bg-dark-teal/50 cursor-pointer ${selectedPartition === partition ? "bg-accent-blue/20 border-accent-blue" : ""}`}
                                                     onClick={() => handlePartitionClick(partition)}
                                                 >
-                                                    <div className="font-semibold text-accent-blue">{partition}</div>
+                                                    <div className="flex flex-col space-y-1">
+                                                        {formatPartitionDisplay(partition)}
+                                                    </div>
                                                 </motion.button>
                                             ))}
                                         </div>
@@ -527,7 +560,10 @@ const MetadataViewer = ({ darkMode }) => {
                                                     className="mt-4 p-4 rounded-lg bg-gradient-to-r from-accent-blue/10 to-purple-500/10 dark:from-dark-teal/50 dark:to-medium-gray/50 border border-accent-blue/30 shadow-lg"
                                                 >
                                                     <h5 className="text-md font-montserrat font-semibold mb-3 text-accent-blue">
-                                                        Data for Partition: {selectedPartition}
+                                                        <span>Data for Partition: </span>
+                                                        <div className="flex flex-wrap gap-2 mt-2">
+                                                            {formatPartitionDisplay(selectedPartition)}
+                                                        </div>
                                                     </h5>
                                                     {loadingPartitionData ? (
                                                         <LoadingSpinner />
@@ -557,7 +593,9 @@ const MetadataViewer = ({ darkMode }) => {
                                                             </table>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-medium-gray dark:text-white">No data available for this partition.</p>
+                                                        <p className="text-medium-gray dark:text-white">
+                                                            {partitionData?.error || "No data available for this partition."}
+                                                        </p>
                                                     )}
                                                 </motion.div>
                                             )}
