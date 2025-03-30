@@ -46,12 +46,14 @@ def list_s3_objects(s3_bucket, prefix=""):
         return []
 
 def detect_table_format(s3_bucket, prefix=""):
+    prefix = prefix.rstrip('/')
     objects = list_s3_objects(s3_bucket, prefix)
     if not objects:
         return None
     
-    # Check for Delta Lake
-    if any(obj.startswith(prefix + "_delta_log/") for obj in objects):
+    # Check for Delta Lake (highest priority)
+    delta_log_prefix = f"{prefix}/_delta_log/" if prefix else "_delta_log/"
+    if any(obj.startswith(delta_log_prefix) for obj in objects):
         return "delta"
     
     # Check for Hudi
@@ -59,18 +61,89 @@ def detect_table_format(s3_bucket, prefix=""):
         return "hudi"
     
     # Check for Iceberg (new improved check)
-    if any(obj.endswith("metadata.json") and "metadata/" in obj for obj in objects):
+    iceberg_metadata_files = [
+        obj for obj in objects 
+        if 'metadata/' in obj and obj.endswith('.metadata.json')
+    ]
+    if iceberg_metadata_files:
         return "iceberg"
     
-    # Check for single Parquet file
+    # Check for older Iceberg metadata locations
+    if any(obj.endswith('/metadata.json') for obj in objects):
+        return "iceberg"
+    
+    # Check for single Parquet file (could be part of any format)
     if len(objects) == 1 and objects[0].endswith(".parquet"):
         return "parquet_file"
     
-    # Check for Parquet directory
+    # Check for Parquet directory (could be part of any format)
     if any(obj.endswith(".parquet") for obj in objects):
-        return "parquet_directory"
+        # Check if this might be a partitioned table without metadata
+        # Look for Hive-style partitioning (key=value)
+        if any('/' in obj and '=' in obj.split('/')[-2] for obj in objects if obj.endswith('.parquet')):
+            return "parquet_directory"
+    
+    # Check for other known data file extensions
+    extensions = set()
+    for obj in objects:
+        if '.' in obj:
+            ext = obj.split('.')[-1].lower()
+            extensions.add(ext)
+    
+    known_data_extensions = {'parquet', 'avro', 'orc', 'csv', 'json'}
+    if extensions & known_data_extensions:
+        return "data_files"
     
     return None
+
+
+def get_data_files_metadata(s3_bucket, prefix):
+    objects = [obj for obj in list_s3_objects(s3_bucket, prefix) if '.' in obj]
+    if not objects:
+        return {"file": prefix, "details": {"error": "No data files found"}}
+
+    # Group by extension
+    extensions = {}
+    for obj in objects:
+        ext = obj.split('.')[-1].lower()
+        if ext not in extensions:
+            extensions[ext] = []
+        extensions[ext].append(obj)
+
+    # Get metadata for the first file of each type
+    samples = {}
+    for ext, files in extensions.items():
+        try:
+            if ext == 'parquet':
+                samples[ext] = get_parquet_metadata(s3_bucket, files[0])
+            else:
+                # For other formats, just return basic info
+                head = s3_client.head_object(Bucket=s3_bucket, Key=files[0])
+                samples[ext] = {
+                    "file": files[0],
+                    "details": {
+                        "format": ext,
+                        "file_size": head["ContentLength"],
+                        "type": "data_file"
+                    }
+                }
+        except Exception as e:
+            samples[ext] = {
+                "file": files[0],
+                "details": {
+                    "error": str(e)
+                }
+            }
+
+    return {
+        "file": prefix,
+        "details": {
+            "format": "data_files",
+            "file_types": samples,
+            "total_files": len(objects),
+            "total_size": sum(f["details"].get("file_size", 0) for f in samples.values())
+        }
+    }
 
 def get_parquet_metadata(s3_bucket, file_key):
     try:
@@ -501,8 +574,6 @@ def get_metadata():
     prefix = request.args.get("prefix", "")
     file_key = request.args.get("file")
 
-    app.logger.info(f"Received metadata request: bucket={bucket}, prefix={prefix}, file={file_key}")
-
     if file_key:
         format_type = detect_table_format(bucket, file_key)
         if format_type == "parquet_file":
@@ -515,6 +586,8 @@ def get_metadata():
             result = get_hudi_metadata(bucket, file_key)
         elif format_type == "iceberg":
             result = get_iceberg_metadata(bucket, file_key)
+        elif format_type == "data_files":
+            result = get_data_files_metadata(bucket, file_key)
         else:
             return jsonify({"error": "Unsupported format or invalid path", "details": f"Detected format: {format_type}"}), 400
     else:
@@ -731,6 +804,25 @@ def get_data():
             else:
                 table_scan = table.scan()
             table = table_scan.to_arrow().slice(0, max_rows)
+        elif format_type == "data_files":
+            # Handle generic data files
+            obj = s3_client.get_object(Bucket=bucket, Key=file_name)
+            file_stream = BytesIO(obj["Body"].read())
+            
+            if file_name.endswith('.csv'):
+                # Read CSV
+                df = pd.read_csv(file_stream, nrows=max_rows)
+            elif file_name.endswith('.json'):
+                # Read JSON
+                df = pd.read_json(file_stream, lines=True, nrows=max_rows)
+            else:
+                return jsonify({"error": "Unsupported file format"}), 400
+                
+            return jsonify({
+                "file": file_name,
+                "version": "latest",
+                "data": df.to_dict(orient="records")
+            })
         else:
             return jsonify({"error": "Unsupported format", "details": f"Detected format: {format_type}"}), 400
         
