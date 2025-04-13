@@ -1669,7 +1669,7 @@ const MetadataViewer = ({ darkMode }) => {
                                     </svg>
                                 </div>
                                 <div className="absolute inset-y-0 right-0 flex items-center pr-5">
-                                    <span className="text-medium-gray/50 dark:text-white/50 text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">⌘K</span>
+                                    <span className="text-medium-gray/50 dark:text-white/50 text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">ctrl+K</span>
                                 </div>
                             </div>
                         </motion.div>

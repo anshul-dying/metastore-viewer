@@ -2,7 +2,7 @@ import os
 import boto3
 import pyarrow.parquet as pq
 import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from io import BytesIO
 from deltalake import DeltaTable
@@ -11,9 +11,13 @@ from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
 from datetime import datetime
 import numpy as np
+import traceback
+import pyarrow as pa
+import pyarrow.compute as pc
 
 app = Flask(__name__)
-CORS(app)
+# Configure CORS properly
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # MinIO Configuration
 S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://localhost:9000")
@@ -27,6 +31,22 @@ s3_client = boto3.client(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
 )
+
+# Error handling decorator
+def handle_errors(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            app.logger.error(f"Error in {func.__name__}: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            return jsonify({
+                "error": str(e),
+                "status": "error",
+                "timestamp": datetime.now().isoformat()
+            }), 500
+    wrapper.__name__ = func.__name__
+    return wrapper
 
 def convert_numpy_types(obj):
     if isinstance(obj, np.generic):
@@ -581,6 +601,7 @@ def get_iceberg_metadata(s3_bucket, prefix):
         return {"file": prefix, "details": {"error": str(e), "partition_details": []}}
 
 @app.route("/metadata", methods=["GET"])
+@handle_errors
 def get_metadata():
     bucket = request.args.get("bucket", BUCKET_NAME)
     prefix = request.args.get("prefix", "")
@@ -644,10 +665,13 @@ def get_metadata():
         result = {"files": metadata}
 
     # Convert numpy types before returning
-    return jsonify(convert_numpy_types(result))
+    response = make_response(jsonify(convert_numpy_types(result)))
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 @app.route("/snapshot_changes", methods=["GET"])
+@handle_errors
 def get_snapshot_changes():
     file_name = request.args.get("file")
     bucket = request.args.get("bucket", BUCKET_NAME)
@@ -656,10 +680,10 @@ def get_snapshot_changes():
     if not file_name or not version:
         return jsonify({"error": "File and version parameters are required"}), 400
 
-    try:
-        format_type = detect_table_format(bucket, file_name)
-        
-        if format_type == "delta":
+    format_type = detect_table_format(bucket, file_name)
+    
+    if format_type == "delta":
+        try:
             table_path = f"s3://{bucket}/{file_name}"
             storage_options = {
                 "AWS_ENDPOINT_URL": S3_ENDPOINT,
@@ -674,11 +698,13 @@ def get_snapshot_changes():
             if current_version == 0:
                 # Initial version - all data is added
                 current_data = dt.to_pyarrow_table().to_pandas()
-                return jsonify({
+                response = make_response(jsonify({
                     "added": current_data.to_dict(orient="records"),
                     "updated": [],
                     "deleted": []
-                })
+                }))
+                response.headers['Cache-Control'] = 'no-cache'
+                return response
             
             # Get previous version
             prev_version = current_version - 1
@@ -731,21 +757,209 @@ def get_snapshot_changes():
                         'changes': changed_fields
                     })
             
-            return jsonify({
+            response = make_response(jsonify({
                 "added": added,
                 "updated": updated,
                 "deleted": deleted,
                 "current_version": current_version,
                 "previous_version": prev_version
-            })
+            }))
+            response.headers['Cache-Control'] = 'no-cache'
+            return response
+        except Exception as e:
+            app.logger.error(f"Error processing Delta changes: {str(e)}")
+            return jsonify({"error": f"Failed to process Delta changes: {str(e)}"}), 500
+    
+    elif format_type == "hudi":
+        try:
+            # Get all data files (excluding .hoodie and crc files)
+            all_files = list_s3_objects(bucket, file_name)
             
-        else:
-            return jsonify({"error": "Format does not support versioning"}), 400
+            # Get the .hoodie/timeline directory
+            timeline_dir = f"{file_name.rstrip('/')}/.hoodie/timeline/"
+            commit_files = [
+                obj for obj in list_s3_objects(bucket, timeline_dir) 
+                if obj.endswith('.commit')
+            ]
             
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            # Sort commits by timestamp (they're in format: yyyyMMddHHmmss.commit)
+            commit_files.sort(key=lambda x: x.split('/')[-1].split('.')[0])
+            
+            if not commit_files:
+                return jsonify({"error": "No commit history found for Hudi table"}), 404
+                
+            # Find the requested version (timestamp) and the previous version
+            requested_timestamp = version
+            current_commit_index = -1
+            
+            for i, commit_file in enumerate(commit_files):
+                timestamp = commit_file.split('/')[-1].split('.')[0]
+                if timestamp == requested_timestamp:
+                    current_commit_index = i
+                    break
+            
+            if current_commit_index == -1:
+                return jsonify({"error": f"No commit found for version {version}"}), 404
+                
+            # Read data for current version
+            current_version_files = []
+            for obj in all_files:
+                if obj.endswith('.parquet') and requested_timestamp in obj:
+                    current_version_files.append(obj)
+            
+            if not current_version_files:
+                return jsonify({"error": f"No data files found for version {version}"}), 404
+                
+            # Create a combined dataframe for current version
+            current_tables = []
+            for file_key in current_version_files[:10]:  # Limit to 10 files
+                obj = s3_client.get_object(Bucket=bucket, Key=file_key)
+                file_stream = BytesIO(obj["Body"].read())
+                parquet_file = pq.ParquetFile(file_stream)
+                table = parquet_file.read()
+                current_tables.append(table)
+                
+            if not current_tables:
+                return jsonify({"error": "Failed to read any current version files"}), 500
+                
+            # If this is the first commit, all data is added
+            if current_commit_index == 0:
+                current_df = pa.concat_tables(current_tables).to_pandas()
+                response = make_response(jsonify({
+                    "added": current_df.to_dict(orient="records"),
+                    "updated": [],
+                    "deleted": [],
+                    "current_version": requested_timestamp,
+                    "previous_version": None
+                }))
+                response.headers['Cache-Control'] = 'no-cache'
+                return response
+                
+            # Get previous version timestamp
+            prev_timestamp = commit_files[current_commit_index - 1].split('/')[-1].split('.')[0]
+            
+            # Read data for previous version
+            prev_version_files = []
+            for obj in all_files:
+                if obj.endswith('.parquet') and prev_timestamp in obj:
+                    prev_version_files.append(obj)
+            
+            if not prev_version_files:
+                # No previous version files found, all data in current version is new
+                current_df = pa.concat_tables(current_tables).to_pandas()
+                response = make_response(jsonify({
+                    "added": current_df.to_dict(orient="records"),
+                    "updated": [],
+                    "deleted": [],
+                    "current_version": requested_timestamp,
+                    "previous_version": prev_timestamp
+                }))
+                response.headers['Cache-Control'] = 'no-cache'
+                return response
+                
+            # Create a combined dataframe for previous version
+            prev_tables = []
+            for file_key in prev_version_files[:10]:  # Limit to 10 files
+                obj = s3_client.get_object(Bucket=bucket, Key=file_key)
+                file_stream = BytesIO(obj["Body"].read())
+                parquet_file = pq.ParquetFile(file_stream)
+                table = parquet_file.read()
+                prev_tables.append(table)
+                
+            if not prev_tables:
+                return jsonify({"error": "Failed to read any previous version files"}), 500
+                
+            # Compare records
+            current_df = pa.concat_tables(current_tables).to_pandas()
+            prev_df = pa.concat_tables(prev_tables).to_pandas()
+            
+            # Look for ID columns
+            id_column = None
+            for column in current_df.columns:
+                if column.lower() in ['id', 'uuid', '_hoodie_record_key']:
+                    id_column = column
+                    break
+                    
+            if not id_column:
+                # Without an ID column, we can't reliably track changes - return simple stats
+                response = make_response(jsonify({
+                    "current_version": requested_timestamp,
+                    "previous_version": prev_timestamp,
+                    "current_record_count": len(current_df),
+                    "previous_record_count": len(prev_df),
+                    "record_count_change": len(current_df) - len(prev_df),
+                    "column_changes": list(set(current_df.columns) - set(prev_df.columns)),
+                    "message": "Cannot track individual record changes without ID column"
+                }))
+                response.headers['Cache-Control'] = 'no-cache'
+                return response
+                
+            # Convert to dictionaries for easier comparison
+            current_records = current_df.to_dict('records')
+            prev_records = prev_df.to_dict('records')
+            
+            # Create dictionaries by ID for quick lookup
+            current_by_id = {str(row[id_column]): row for row in current_records}
+            prev_by_id = {str(row[id_column]): row for row in prev_records}
+            
+            # Find changes
+            current_ids = set(current_by_id.keys())
+            prev_ids = set(prev_by_id.keys())
+            
+            # Added records (in current but not in previous)
+            added_ids = current_ids - prev_ids
+            added = [current_by_id[id] for id in added_ids]
+            
+            # Deleted records (in previous but not in current)
+            deleted_ids = prev_ids - current_ids
+            deleted = [prev_by_id[id] for id in deleted_ids]
+            
+            # Updated records (in both but different)
+            updated = []
+            common_ids = current_ids & prev_ids
+            
+            for id_val in common_ids:
+                current_row = current_by_id[id_val]
+                prev_row = prev_by_id[id_val]
+                
+                # Find all changed fields
+                changed_fields = {}
+                for key in current_row:
+                    if key != id_column and current_row[key] != prev_row.get(key):
+                        changed_fields[key] = {
+                            'old_value': prev_row.get(key),
+                            'new_value': current_row[key]
+                        }
+                
+                if changed_fields:
+                    updated.append({
+                        'id': id_val,
+                        'changes': changed_fields
+                    })
+            
+            response = make_response(jsonify({
+                "added": added[:100],  # Limit to 100 records for performance
+                "updated": updated[:100],
+                "deleted": deleted[:100],
+                "current_version": requested_timestamp,
+                "previous_version": prev_timestamp,
+                "added_count": len(added),
+                "updated_count": len(updated),
+                "deleted_count": len(deleted)
+            }))
+            response.headers['Cache-Control'] = 'no-cache'
+            return response
+            
+        except Exception as e:
+            app.logger.error(f"Error processing Hudi changes: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            return jsonify({"error": f"Failed to process Hudi changes: {str(e)}"}), 500
+        
+    else:
+        return jsonify({"error": f"Format {format_type} does not support versioning or is unsupported"}), 400
 
 @app.route("/data", methods=["GET"])
+@handle_errors
 def get_data():
     file_name = request.args.get("file")
     bucket = request.args.get("bucket", BUCKET_NAME)
@@ -786,77 +1000,66 @@ def get_data():
                               })
             table = dt.to_pyarrow_table().slice(0, max_rows)
         elif format_type == "hudi":
-            try:
-                # Get all data files (excluding .hoodie and crc files)
-                all_files = list_s3_objects(bucket, file_name)
-                parquet_files = [
-                    obj for obj in all_files 
-                    if obj.endswith('.parquet') and 
-                    not obj.startswith('.hoodie/') and
-                    not obj.endswith('.crc')
-                ]
+            # Get all data files (excluding .hoodie and crc files)
+            all_files = list_s3_objects(bucket, file_name)
+            parquet_files = [
+                obj for obj in all_files 
+                if obj.endswith('.parquet') and 
+                not obj.startswith('.hoodie/') and
+                not obj.endswith('.crc')
+            ]
 
-                if not parquet_files:
-                    return jsonify({"error": "No data files found in Hudi table"}), 404
+            if not parquet_files:
+                return jsonify({"error": "No data files found in Hudi table"}), 404
 
-                # If version specified, find files matching that version
-                if version:
-                    # Hudi versions are typically timestamps (e.g., 20240330010101)
-                    version_files = [f for f in parquet_files if version in f]
-                    if version_files:
-                        parquet_files = version_files
-                    else:
-                        return jsonify({"error": f"No files found for version {version}"}), 404
+            # If version specified, find files matching that version
+            if version:
+                # Hudi versions are typically timestamps (e.g., 20240330010101)
+                version_files = [f for f in parquet_files if version in f]
+                if version_files:
+                    parquet_files = version_files
+                else:
+                    return jsonify({"error": f"No files found for version {version}"}), 404
 
-                # Read and combine data from parquet files
-                tables = []
-                for file_key in parquet_files[:10]:  # Limit to 10 files for safety
-                    try:
-                        # Skip CRC files explicitly
-                        if file_key.endswith('.crc'):
-                            continue
-                            
-                        obj = s3_client.get_object(Bucket=bucket, Key=file_key)
-                        file_stream = BytesIO(obj["Body"].read())
-                        
-                        # Read parquet file with proper error handling
-                        try:
-                            parquet_file = pq.ParquetFile(file_stream)
-                            # Read first row group with limit
-                            table = parquet_file.read_row_group(0).slice(0, max_rows)
-                            tables.append(table)
-                        except Exception as e:
-                            app.logger.warning(f"Error reading {file_key}: {str(e)}")
-                            continue
-                            
-                    except Exception as e:
-                        app.logger.warning(f"Error accessing {file_key}: {str(e)}")
+            # Read and combine data from parquet files
+            tables = []
+            for file_key in parquet_files[:10]:  # Limit to 10 files for safety
+                try:
+                    # Skip CRC files explicitly
+                    if file_key.endswith('.crc'):
                         continue
+                        
+                    obj = s3_client.get_object(Bucket=bucket, Key=file_key)
+                    file_stream = BytesIO(obj["Body"].read())
+                    
+                    # Read parquet file with proper error handling
+                    try:
+                        parquet_file = pq.ParquetFile(file_stream)
+                        # Read first row group with limit
+                        table = parquet_file.read_row_group(0).slice(0, max_rows)
+                        tables.append(table)
+                    except Exception as e:
+                        app.logger.warning(f"Error reading {file_key}: {str(e)}")
+                        continue
+                        
+                except Exception as e:
+                    app.logger.warning(f"Error accessing {file_key}: {str(e)}")
+                    continue
 
-                if not tables:
-                    return jsonify({"error": "Could not read any valid data files"}), 500
+            if not tables:
+                return jsonify({"error": "Could not read any valid data files"}), 500
 
-                # Combine all tables and apply final row limit
-                combined = pa.concat_tables(tables).slice(0, max_rows)
-                df = combined.to_pandas()
-                
-                return jsonify({
-                    "file": file_name,
-                    "version": version if version else "latest",
-                    "data": df.to_dict(orient="records")
-                })
-
-            except Exception as e:
-                app.logger.error(f"Hudi data fetch failed: {str(e)}")
-                return jsonify({
-                    "error": "Failed to read Hudi table data",
-                    "details": str(e),
-                    "debug": {
-                        "bucket": bucket,
-                        "path": file_name,
-                        "version": version
-                    }
-                }), 500
+            # Combine all tables and apply final row limit
+            combined = pa.concat_tables(tables).slice(0, max_rows)
+            df = combined.to_pandas()
+            
+            response = make_response(jsonify({
+                "file": file_name,
+                "version": version if version else "latest",
+                "data": df.to_dict(orient="records")
+            }))
+            response.headers['Cache-Control'] = 'no-cache'
+            return response
 
         elif format_type == "iceberg":
             try:
@@ -885,11 +1088,13 @@ def get_data():
                 limited_table = arrow_table.slice(0, max_rows)
                 df = limited_table.to_pandas()
                 
-                return jsonify({
+                response = make_response(jsonify({
                     "file": file_name,
                     "version": version if version else "latest",
                     "data": df.to_dict(orient="records")
-                })
+                }))
+                response.headers['Cache-Control'] = 'no-cache'
+                return response
 
             except NoSuchTableError:
                 return jsonify({"error": f"Iceberg table {file_name} not found"}), 404
@@ -910,11 +1115,13 @@ def get_data():
             else:
                 return jsonify({"error": "Unsupported file format"}), 400
                 
-            return jsonify({
+            response = make_response(jsonify({
                 "file": file_name,
                 "version": "latest",
                 "data": df.to_dict(orient="records")
-            })
+            }))
+            response.headers['Cache-Control'] = 'no-cache'
+            return response
         else:
             return jsonify({"error": "Unsupported format", "details": f"Detected format: {format_type}"}), 400
         
@@ -935,6 +1142,7 @@ def get_data():
         return jsonify({"error": "Failed to fetch data", "details": str(e)}), 500
     
 @app.route("/partition_data", methods=["GET"])
+@handle_errors
 def get_partition_data():
     file_name = request.args.get("file")
     bucket = request.args.get("bucket", BUCKET_NAME)
@@ -988,7 +1196,6 @@ def get_partition_data():
             table = dt.to_pyarrow_table()
             
             # Apply partition filters
-            import pyarrow.compute as pc
             for key, value in partition_filters.items():
                 mask = pc.equal(pc.field(key), value)
                 table = table.filter(mask)
@@ -1039,7 +1246,6 @@ def get_partition_data():
             
             # Filter by partition
             scan = table.scan()
-            import pyarrow.compute as pc
             for key, value in partition_filters.items():
                 scan = scan.filter(pc.field(key) == value)
             table = scan.to_arrow().slice(0, max_rows)
@@ -1056,11 +1262,23 @@ def get_partition_data():
             "data": sample_data
         }
         
-        return jsonify(convert_numpy_types(result))
+        # Return with proper headers
+        response = make_response(jsonify(convert_numpy_types(result)))
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
         
     except Exception as e:
         app.logger.error(f"Error fetching partition data: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# Health check endpoint
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
