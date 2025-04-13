@@ -14,6 +14,7 @@ import {
     ArcElement
 } from "chart.js";
 import { motion, AnimatePresence } from "framer-motion";
+import './MetadataViewer.css'; // Make sure you create this CSS file
 
 // Register ChartJS components
 ChartJS.register(
@@ -32,7 +33,9 @@ const loadingContainerStyle = {
     alignItems: 'center',
     justifyContent: 'center',
     height: '300px',
-    width: '100%'
+    width: '100%',
+    background: 'linear-gradient(135deg, rgba(0,161,214,0.1) 0%, rgba(0,161,214,0.05) 100%)',
+    borderRadius: '12px'
 };
 
 const PartitionDataModal = ({
@@ -46,34 +49,36 @@ const PartitionDataModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black bg-opacity-50 p-4">
-            <div className="bg-white dark:bg-dark-teal rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-                <div className="flex justify-between items-center p-4 border-b border-subtle-gray dark:border-white/20">
-                    <h3 className="text-lg font-montserrat font-semibold text-medium-gray dark:text-accent-blue">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-dark-teal rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col transform transition-all duration-300 ease-in-out">
+                <div className="flex justify-between items-center p-6 border-b border-subtle-gray/20 dark:border-white/10">
+                    <h3 className="text-xl font-montserrat font-semibold text-medium-gray dark:text-accent-blue">
                         Partition Data: {partition}
                     </h3>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                         aria-label="Close"
                     >
                         <FaTimes className="text-medium-gray dark:text-white" />
                     </button>
                 </div>
-                <div className="flex-1 overflow-auto p-4">
+                <div className="flex-1 overflow-auto p-6">
                     {loading ? (
                         <LoadingSpinner />
                     ) : error ? (
-                        <p className="text-red-500">{error}</p>
+                        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-500/30">
+                            <p className="text-red-500">{error}</p>
+                        </div>
                     ) : data && data.data ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full border-collapse border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal">
+                        <div className="overflow-x-auto rounded-lg border border-subtle-gray/20 dark:border-white/10">
+                            <table className="w-full border-collapse bg-white dark:bg-dark-teal">
                                 <thead>
-                                    <tr className="bg-subtle-gray dark:bg-medium-gray">
+                                    <tr className="bg-subtle-gray/50 dark:bg-medium-gray/30">
                                         {Object.keys(data.data[0] || {}).map((key) => (
                                             <th
                                                 key={key}
-                                                className="p-2 whitespace-nowrap text-medium-gray dark:text-white text-left border"
+                                                className="p-4 whitespace-nowrap text-medium-gray dark:text-white text-left border-b border-subtle-gray/20 dark:border-white/10"
                                             >
                                                 {key}
                                             </th>
@@ -84,12 +89,12 @@ const PartitionDataModal = ({
                                     {data.data.map((row, idx) => (
                                         <tr
                                             key={idx}
-                                            className="hover:bg-accent-blue/10 dark:hover:bg-white/10 transition-all duration-200"
+                                            className="hover:bg-accent-blue/5 dark:hover:bg-white/5 transition-all duration-200"
                                         >
                                             {Object.values(row).map((value, i) => (
                                                 <td
                                                     key={i}
-                                                    className="p-2 whitespace-nowrap text-medium-gray dark:text-white border"
+                                                    className="p-4 whitespace-nowrap text-medium-gray dark:text-white border-b border-subtle-gray/20 dark:border-white/10"
                                                 >
                                                     {value !== null ? value.toString() : 'NULL'}
                                                 </td>
@@ -100,7 +105,9 @@ const PartitionDataModal = ({
                             </table>
                         </div>
                     ) : (
-                        <p className="text-medium-gray dark:text-white">No data available for this partition</p>
+                        <div className="text-center py-8">
+                            <p className="text-medium-gray dark:text-white/70">No data available for this partition</p>
+                        </div>
                     )}
                 </div>
             </div>
@@ -302,40 +309,65 @@ const Modal = ({ isOpen, onClose, title, children, size = "lg" }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black bg-opacity-50 p-4">
-            <div className={`bg-white dark:bg-dark-teal rounded-lg shadow-xl ${sizeClasses[size]} w-full max-h-[90vh] flex flex-col`}>
-                <div className="flex justify-between items-center p-4 border-b border-subtle-gray dark:border-white/20">
-                    <h3 className="text-lg font-montserrat font-semibold text-medium-gray dark:text-accent-blue">{title}</h3>
-                    <button
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/60 backdrop-blur-sm p-4"
+        >
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className={`bg-white/95 dark:bg-dark-teal/95 rounded-2xl shadow-2xl ${sizeClasses[size]} w-full max-h-[90vh] flex flex-col relative overflow-hidden`}
+            >
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-blue via-blue-500 to-purple-600"></div>
+                <div className="flex justify-between items-center p-6 border-b border-subtle-gray/10 dark:border-white/5">
+                    <h3 className="text-xl font-montserrat font-semibold bg-gradient-to-r from-accent-blue to-blue-600 bg-clip-text text-transparent">{title}</h3>
+                    <motion.button
+                        whileHover={{ rotate: 90, scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
                         <FaTimes className="text-medium-gray dark:text-white" />
-                    </button>
+                    </motion.button>
                 </div>
-                <div className="flex-1 overflow-auto p-4">
+                <div className="flex-1 overflow-auto p-6 custom-scrollbar">
                     {children}
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 };
 
 const Tabs = ({ tabs, activeTab, setActiveTab }) => {
     return (
-        <div className="mb-6">
-            <div className="flex border-b border-subtle-gray dark:border-white/20">
+        <div className="mb-8">
+            <div className="flex flex-wrap border-b border-subtle-gray/10 dark:border-white/5 relative">
                 {tabs.map((tab) => (
-                    <button
+                    <motion.button
                         key={tab.id}
-                        className={`px-4 py-2 font-montserrat font-medium transition-all duration-200 ${activeTab === tab.id
-                            ? "text-accent-blue border-b-2 border-accent-blue"
+                        className={`px-6 py-3 font-montserrat font-medium transition-all duration-300 relative ${activeTab === tab.id
+                            ? "text-accent-blue"
                             : "text-medium-gray dark:text-white hover:text-accent-blue"
                             }`}
                         onClick={() => setActiveTab(tab.id)}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ y: 0 }}
                     >
                         {tab.label}
-                    </button>
+                        {activeTab === tab.id && (
+                            <motion.div
+                                layoutId="activeTabIndicator"
+                                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent-blue to-blue-600 rounded-full"
+                                initial={false}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            />
+                        )}
+                    </motion.button>
                 ))}
             </div>
         </div>
@@ -345,45 +377,105 @@ const Tabs = ({ tabs, activeTab, setActiveTab }) => {
 const LoadingSpinner = ({ withLottie = true }) => {
     if (withLottie) {
         return (
-            <div style={loadingContainerStyle}>
-                <Lottie
-                    animationData={require('../assets/hand-animation.json')}
-                    loop={true}
-                    style={{ width: 150, height: 150 }}
-                />
-                <p className="text-medium-gray dark:text-white mt-4">
-                    Loading your data...
-                </p>
-            </div>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center p-12 glass-card rounded-2xl enhanced-shadow"
+                style={{ minHeight: '400px' }}
+            >
+                <div className="relative">
+                    <Lottie
+                        animationData={require('../assets/hand-animation.json')}
+                        loop={true}
+                        style={{ width: 200, height: 200 }}
+                    />
+                    <div className="absolute inset-0 breathing-highlight rounded-full"></div>
+                </div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5, duration: 0.5 }}
+                    className="mt-8 text-center"
+                >
+                    <h3 className="text-xl font-semibold text-gradient mb-2">Discovering Your Data</h3>
+                    <p className="text-medium-gray/70 dark:text-white/70">
+                        We're preparing your data lake visualization...
+                    </p>
+                </motion.div>
+                <div className="mt-8 grid grid-cols-3 gap-3">
+                    {[1, 2, 3].map((i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{
+                                scale: [0.8, 1, 0.8],
+                                opacity: [0.5, 1, 0.5]
+                            }}
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                delay: i * 0.3
+                            }}
+                            className="w-3 h-3 rounded-full bg-accent-blue/60"
+                        />
+                    ))}
+                </div>
+            </motion.div>
         );
     }
 
     return (
-        <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-blue dark:border-white"></div>
+        <div className="flex flex-col justify-center items-center h-60 glass-card rounded-2xl p-8">
+            <div className="relative">
+                <svg className="w-16 h-16 animate-spin" viewBox="0 0 24 24">
+                    <circle
+                        className="opacity-20"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="none"
+                    />
+                    <path
+                        className="text-accent-blue"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                </svg>
+                <div className="absolute top-0 left-0 w-16 h-16 rounded-full animate-pulse opacity-30 bg-accent-blue/20"></div>
+            </div>
+            <p className="text-medium-gray dark:text-white/70 mt-4 font-medium">Processing...</p>
         </div>
     );
 };
 
 const StatCard = ({ title, value, icon, color = "blue" }) => {
     const colors = {
-        blue: "bg-blue-500/10 text-blue-500 border-blue-300",
-        green: "bg-green-500/10 text-green-500 border-green-300",
-        red: "bg-red-500/10 text-red-500 border-red-300",
-        yellow: "bg-yellow-500/10 text-yellow-500 border-yellow-300",
-        purple: "bg-purple-500/10 text-purple-500 border-purple-300",
+        blue: "bg-gradient-to-br from-blue-500/20 to-blue-600/10 text-blue-600 border-blue-300/50",
+        green: "bg-gradient-to-br from-green-500/20 to-green-600/10 text-green-600 border-green-300/50",
+        red: "bg-gradient-to-br from-red-500/20 to-red-600/10 text-red-600 border-red-300/50",
+        yellow: "bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 text-yellow-600 border-yellow-300/50",
+        purple: "bg-gradient-to-br from-purple-500/20 to-purple-600/10 text-purple-600 border-purple-300/50",
     };
 
     return (
-        <div className={`p-4 rounded-lg shadow ${colors[color]} border`}>
-            <div className="flex items-center justify-between">
+        <motion.div
+            whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)" }}
+            transition={{ duration: 0.2 }}
+            className={`p-6 rounded-2xl ${colors[color]} border backdrop-blur-sm shadow-xl relative overflow-hidden group`}
+        >
+            <div className="absolute -right-6 -top-6 w-16 h-16 rounded-full bg-white/10 group-hover:scale-150 transition-all duration-700"></div>
+            <div className="absolute right-10 bottom-6 w-8 h-8 rounded-full bg-white/10 group-hover:scale-150 transition-all duration-700 delay-100"></div>
+            <div className="flex items-center justify-between z-10 relative">
                 <div>
-                    <p className="text-sm opacity-80">{title}</p>
-                    <p className="text-xl font-semibold mt-1">{value}</p>
+                    <p className="text-sm font-medium opacity-80">{title}</p>
+                    <p className="text-3xl font-bold mt-2">{value}</p>
                 </div>
-                {icon && <div className="text-2xl opacity-80">{icon}</div>}
+                {icon && <div className="text-3xl opacity-80">{icon}</div>}
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -1467,28 +1559,68 @@ const MetadataViewer = ({ darkMode }) => {
 
     return (
         <ErrorBoundary>
-            <div className="container mx-auto py-6 px-4 max-w-6xl">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-montserrat font-bold text-medium-gray dark:text-white mb-6">
+            <div className="container mx-auto py-10 px-6 max-w-7xl">
+                <div className="mb-10">
+                    <motion.h1
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7 }}
+                        className="text-4xl font-montserrat font-bold bg-gradient-to-r from-accent-blue via-blue-500 to-purple-600 text-transparent bg-clip-text mb-2"
+                    >
                         Data Lake Explorer
-                    </h1>
-                    <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 mb-6">
-                        <input
-                            type="text"
-                            value={objectStorePath}
-                            onChange={(e) => setObjectStorePath(e.target.value)}
-                            placeholder="s3://bucket-name/prefix"
-                            className="flex-grow p-3 rounded-lg border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300"
-                        />
-                        <button
-                            type="submit"
-                            className="px-6 py-3 bg-accent-blue text-white font-medium rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300"
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.7 }}
+                        transition={{ duration: 0.7, delay: 0.2 }}
+                        className="text-lg text-medium-gray/80 dark:text-white/70 mb-8"
+                    >
+                        Explore, analyze and visualize your data lake with ease
+                    </motion.p>
+                    <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 mb-10">
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="flex-grow relative"
                         >
-                            Browse
-                        </button>
+                            <input
+                                type="text"
+                                value={objectStorePath}
+                                onChange={(e) => setObjectStorePath(e.target.value)}
+                                placeholder="s3://bucket-name/prefix"
+                                className="w-full p-5 rounded-2xl border border-subtle-gray/20 dark:border-white/10 bg-white/90 dark:bg-dark-teal/90 text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue/70 transition-all duration-300 shadow-lg"
+                            />
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-4">
+                                <span className="text-accent-blue/70">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                    </svg>
+                                </span>
+                            </div>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-4">
+                                <span className="text-medium-gray/50 dark:text-white/50 text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">Press Enter</span>
+                            </div>
+                        </motion.div>
+                        <motion.button
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            type="submit"
+                            className="px-8 py-5 bg-gradient-to-r from-accent-blue to-blue-600 text-white font-medium rounded-2xl shadow-lg hover:shadow-accent-blue/20 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-300"
+                        >
+                            Explore Data
+                        </motion.button>
                     </form>
                     {metadata.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.7, delay: 0.3 }}
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+                        >
                             <StatCard
                                 title="Total Files"
                                 value={metadata.length}
@@ -1515,39 +1647,68 @@ const MetadataViewer = ({ darkMode }) => {
                                 value={new Set(metadata.filter(item => item.details?.format).map(item => item.details.format)).size}
                                 color="yellow"
                             />
-                        </div>
+                        </motion.div>
                     )}
                     {metadata.length > 0 && (
-                        <div className="mb-6">
-                            <input
-                                type="text"
-                                placeholder="Search files..."
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="w-full p-3 rounded-lg border border-subtle-gray dark:border-white/20 bg-white dark:bg-dark-teal text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all duration-300"
-                            />
-                        </div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.7, delay: 0.4 }}
+                            className="mb-10"
+                        >
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search files..."
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    className="w-full p-5 rounded-2xl border border-subtle-gray/20 dark:border-white/10 bg-white/90 dark:bg-dark-teal/90 text-medium-gray dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-blue/70 transition-all duration-300 shadow-lg pl-14"
+                                />
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent-blue/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                <div className="absolute inset-y-0 right-0 flex items-center pr-5">
+                                    <span className="text-medium-gray/50 dark:text-white/50 text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">⌘K</span>
+                                </div>
+                            </div>
+                        </motion.div>
                     )}
                 </div>
                 {loading ? (
                     <LoadingSpinner />
                 ) : error ? (
-                    <div className="text-red-500 p-4 rounded-lg bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-500/30">
-                        {error}
-                    </div>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="bg-red-50 dark:bg-red-900/20 p-8 rounded-2xl border border-red-200 dark:border-red-500/30 shadow-lg"
+                    >
+                        <p className="text-red-500 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            {error}
+                        </p>
+                    </motion.div>
                 ) : (
                     <div>
                         {paginatedMetadata.length > 0 ? (
-                            <div className="overflow-hidden rounded-xl bg-white dark:bg-dark-teal shadow-md">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5 }}
+                                className="overflow-hidden rounded-2xl bg-white/90 dark:bg-dark-teal/90 shadow-2xl border border-white/20 dark:border-white/5"
+                            >
                                 <div className="overflow-x-auto">
                                     <table className="w-full whitespace-nowrap">
                                         <thead>
-                                            <tr className="bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray dark:text-white text-left">
-                                                <th className="px-6 py-3">Name</th>
-                                                <th className="px-6 py-3">Format</th>
-                                                <th className="px-6 py-3">Size</th>
-                                                <th className="px-6 py-3">Rows</th>
-                                                <th className="px-6 py-3">Columns</th>
-                                                <th className="px-6 py-3">Actions</th>
+                                            <tr className="bg-gradient-to-r from-accent-blue/10 to-blue-500/5 dark:from-accent-blue/20 dark:to-blue-500/10 text-medium-gray dark:text-white text-left">
+                                                <th className="px-8 py-5 font-semibold">Name</th>
+                                                <th className="px-8 py-5 font-semibold">Format</th>
+                                                <th className="px-8 py-5 font-semibold">Size</th>
+                                                <th className="px-8 py-5 font-semibold">Rows</th>
+                                                <th className="px-8 py-5 font-semibold">Columns</th>
+                                                <th className="px-8 py-5 font-semibold">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1557,42 +1718,54 @@ const MetadataViewer = ({ darkMode }) => {
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     transition={{ duration: 0.3, delay: idx * 0.05 }}
-                                                    className="border-b border-subtle-gray dark:border-white/10 hover:bg-accent-blue/5 dark:hover:bg-white/5 transition-colors"
+                                                    className="border-b border-subtle-gray/10 dark:border-white/5 hover:bg-accent-blue/5 dark:hover:bg-white/5 transition-all duration-300"
                                                 >
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-8 py-5">
                                                         <div className="flex items-center">
-                                                            <span className="mr-2">{getFileIcon(item.extension, item.details?.format)}</span>
+                                                            <span className="mr-4 bg-white/90 dark:bg-dark-teal/90 p-2 rounded-lg shadow-sm">{getFileIcon(item.extension, item.details?.format)}</span>
                                                             <span className="text-medium-gray dark:text-white font-medium truncate max-w-xs">
                                                                 {item.filename}
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-medium-gray dark:text-white">
-                                                        {item.displayFormat}
+                                                    <td className="px-8 py-5 text-medium-gray dark:text-white">
+                                                        <span className="px-3 py-1 bg-accent-blue/10 text-accent-blue rounded-full text-sm">
+                                                            {item.displayFormat}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-medium-gray dark:text-white">
+                                                    <td className="px-8 py-5 text-medium-gray dark:text-white">
                                                         {item.details && item.details.file_size ? formatFileSize(item.details.file_size) : "N/A"}
                                                     </td>
-                                                    <td className="px-6 py-4 text-medium-gray dark:text-white">
+                                                    <td className="px-8 py-5 text-medium-gray dark:text-white">
                                                         {item.details && item.details.num_rows ? formatNumber(item.details.num_rows) : "N/A"}
                                                     </td>
-                                                    <td className="px-6 py-4 text-medium-gray dark:text-white">
-                                                        {item.details && Array.isArray(item.details.columns) ? item.details.columns.length : "N/A"}
+                                                    <td className="px-8 py-5 text-medium-gray dark:text-white">
+                                                        {item.details && Array.isArray(item.details.columns) ? (
+                                                            <span className="inline-flex items-center">
+                                                                <span className="bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 text-xs font-medium px-2.5 py-1 rounded-full">
+                                                                    {item.details.columns.length}
+                                                                </span>
+                                                            </span>
+                                                        ) : "N/A"}
                                                     </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex gap-2">
-                                                            <button
+                                                    <td className="px-8 py-5">
+                                                        <div className="flex gap-3">
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.05 }}
+                                                                whileTap={{ scale: 0.95 }}
                                                                 onClick={() => openDetailsModal(item)}
-                                                                className="px-3 py-1.5 bg-accent-blue/10 text-accent-blue rounded-md hover:bg-accent-blue/20 transition-colors duration-300"
+                                                                className="px-5 py-2.5 bg-gradient-to-r from-accent-blue/20 to-blue-500/10 text-accent-blue rounded-lg hover:shadow-md transition-all duration-300"
                                                             >
                                                                 View Details
-                                                            </button>
-                                                            <button
+                                                            </motion.button>
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.05 }}
+                                                                whileTap={{ scale: 0.95 }}
                                                                 onClick={() => openDataModal(item)}
-                                                                className="px-3 py-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-md hover:bg-green-500/20 transition-colors duration-300"
+                                                                className="px-5 py-2.5 bg-gradient-to-r from-green-500/20 to-green-600/10 text-green-600 dark:text-green-400 rounded-lg hover:shadow-md transition-all duration-300"
                                                             >
                                                                 View Data
-                                                            </button>
+                                                            </motion.button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -1600,51 +1773,76 @@ const MetadataViewer = ({ darkMode }) => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="flex justify-between items-center px-6 py-4 bg-white dark:bg-dark-teal border-t border-subtle-gray dark:border-white/10">
+                                <div className="flex justify-between items-center px-8 py-6 bg-white/90 dark:bg-dark-teal/90 border-t border-subtle-gray/10 dark:border-white/5">
                                     <div className="text-sm text-medium-gray dark:text-white">
-                                        Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                                        {Math.min(currentPage * itemsPerPage, filteredMetadata.length)} of{" "}
-                                        {filteredMetadata.length} files
+                                        Showing <span className="font-semibold text-accent-blue">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                                        <span className="font-semibold text-accent-blue">{Math.min(currentPage * itemsPerPage, filteredMetadata.length)}</span> of{" "}
+                                        <span className="font-semibold text-accent-blue">{filteredMetadata.length}</span> files
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button
+                                    <div className="flex gap-3">
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                                             disabled={currentPage === 1}
-                                            className={`px-3 py-1 rounded-md ${currentPage === 1
-                                                ? "bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
-                                                : "bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20"
-                                                } transition-colors`}
+                                            className={`px-5 py-2.5 rounded-lg transition-all duration-300 flex items-center ${currentPage === 1
+                                                ? "bg-subtle-gray/30 dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
+                                                : "bg-gradient-to-r from-accent-blue/20 to-blue-500/10 text-accent-blue hover:shadow-md"
+                                                }`}
                                         >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                            </svg>
                                             Previous
-                                        </button>
-                                        <span className="px-3 py-1 bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray dark:text-white rounded-md">
+                                        </motion.button>
+                                        <span className="px-5 py-2.5 bg-subtle-gray/30 dark:bg-medium-gray/30 text-medium-gray dark:text-white rounded-lg font-semibold">
                                             {currentPage}
                                         </span>
-                                        <button
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
                                             onClick={() =>
                                                 setCurrentPage((prev) =>
                                                     Math.min(prev + 1, Math.ceil(filteredMetadata.length / itemsPerPage))
                                                 )
                                             }
                                             disabled={currentPage >= Math.ceil(filteredMetadata.length / itemsPerPage)}
-                                            className={`px-3 py-1 rounded-md ${currentPage >= Math.ceil(filteredMetadata.length / itemsPerPage)
-                                                ? "bg-subtle-gray dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
-                                                : "bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20"
-                                                } transition-colors`}
+                                            className={`px-5 py-2.5 rounded-lg transition-all duration-300 flex items-center ${currentPage >= Math.ceil(filteredMetadata.length / itemsPerPage)
+                                                ? "bg-subtle-gray/30 dark:bg-medium-gray/30 text-medium-gray/50 dark:text-white/50 cursor-not-allowed"
+                                                : "bg-gradient-to-r from-accent-blue/20 to-blue-500/10 text-accent-blue hover:shadow-md"
+                                                }`}
                                         >
                                             Next
-                                        </button>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </motion.button>
                                     </div>
                                 </div>
-                            </div>
+                            </motion.div>
                         ) : (
-                            <div className="text-center p-8">
-                                <p className="text-medium-gray dark:text-white mb-4">
-                                    {metadata.length === 0 && objectStorePath
-                                        ? "No files found. Try a different path or check your connection."
-                                        : "Enter a path and press Browse to view files."}
-                                </p>
-                            </div>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.5 }}
+                                className="text-center p-16 bg-white/50 dark:bg-dark-teal/50 rounded-2xl border border-subtle-gray/20 dark:border-white/10 shadow-xl backdrop-blur-sm"
+                            >
+                                <div className="flex flex-col items-center justify-center space-y-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-accent-blue/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <p className="text-medium-gray dark:text-white/70 text-xl font-medium">
+                                        {metadata.length === 0 && objectStorePath
+                                            ? "No files found in this location."
+                                            : "Enter a path and press Explore Data to discover your files."}
+                                    </p>
+                                    {metadata.length === 0 && objectStorePath && (
+                                        <p className="text-medium-gray/70 dark:text-white/50 max-w-md">
+                                            Try a different path or check your connection. Make sure you have the correct permissions.
+                                        </p>
+                                    )}
+                                </div>
+                            </motion.div>
                         )}
                     </div>
                 )}

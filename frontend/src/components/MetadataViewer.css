@@ -1,0 +1,119 @@
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 161, 214, 0.3);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 161, 214, 0.5);
+}
+
+/* Glassmorphism effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
+
+.dark .glass-card {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Animation for table rows on hover */
+tr:hover td {
+    transform: translateY(-2px);
+    transition: transform 0.3s ease;
+    background-color: rgba(0, 161, 214, 0.03);
+}
+
+/* Enhanced box shadows */
+.enhanced-shadow {
+    box-shadow:
+        0 5px 10px rgba(0, 0, 0, 0.03),
+        0 15px 40px rgba(0, 0, 0, 0.05);
+}
+
+.dark .enhanced-shadow {
+    box-shadow:
+        0 5px 10px rgba(0, 0, 0, 0.1),
+        0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Advanced gradient button */
+.gradient-button {
+    background-size: 200% auto;
+    transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
+    background-image: linear-gradient(to right, #00A1D6 0%, #3F51B5 50%, #00A1D6 100%);
+}
+
+.gradient-button:hover {
+    background-position: right center;
+    box-shadow: 0 10px 20px rgba(0, 161, 214, 0.2);
+}
+
+/* Breathing animation for highlighted elements */
+@keyframes gentle-breathe {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 161, 214, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 20px 5px rgba(0, 161, 214, 0.3);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 161, 214, 0.2);
+    }
+}
+
+.breathing-highlight {
+    animation: gentle-breathe 3s infinite;
+}
+
+/* Text gradient for headings */
+.text-gradient {
+    background: linear-gradient(90deg, #00A1D6, #3F51B5);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+/* Subtle grid background */
+.grid-background {
+    background-image:
+        linear-gradient(rgba(237, 242, 247, 0.5) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(237, 242, 247, 0.5) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.dark .grid-background {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .responsive-padding {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .xs-hide {
+        display: none;
+    }
+}
